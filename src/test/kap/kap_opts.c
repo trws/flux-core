@@ -19,22 +19,22 @@
 
 #define KAP_OPTS "hln:T:P:C:p:c:a:i:f:t:j:s:d:e"
 static const struct option kap_opts[] = {
-    {"help",            0, 0, 'h'},
-    {"list-config",     0, 0, 'l'},
-    {"instance-num",    1, 0, 'n'},
-    {"total-num-proc",  1, 0, 'T'},
-    {"nproducers",      1, 0, 'P'},
-    {"nconsumers",      1, 0, 'C'},
-    {"value-size",      1, 0, 'p'},
-    {"cons-acc-count",  1, 0, 'c'},
-    {"access-stride",   1, 0, 'a'},
-    {"iter-producer",   1, 0, 'i'},
-    {"iter-commit",     1, 0, 'f'},
-    {"iter-commit-type",1, 0, 't'},
-    {"iter-consumer",   1, 0, 'j'},
-    {"sync-type",       1, 0, 's'},
-    {"ndirs",           1, 0, 'd'},
-    {"redundant-val",   0, 0, 'e'},
+    {"help",            no_argument, 0, 'h'},
+    {"list-config",     no_argument, 0, 'l'},
+    {"instance-num",    required_argument, 0, 'n'},
+    {"total-num-proc",  required_argument, 0, 'T'},
+    {"nproducers",      required_argument, 0, 'P'},
+    {"nconsumers",      required_argument, 0, 'C'},
+    {"value-size",      required_argument, 0, 'p'},
+    {"cons-acc-count",  required_argument, 0, 'c'},
+    {"access-stride",   required_argument, 0, 'a'},
+    {"iter-producer",   required_argument, 0, 'i'},
+    {"iter-commit",     required_argument, 0, 'f'},
+    {"iter-commit-type",required_argument, 0, 't'},
+    {"iter-consumer",   required_argument, 0, 'j'},
+    {"sync-type",       required_argument, 0, 's'},
+    {"ndirs",           required_argument, 0, 'd'},
+    {"redundant-val",   optional_argument, 0, 'e'},
     { 0, 0, 0, 0 },
 };
 
@@ -109,8 +109,14 @@ print_usage ()
     "                               are distributed (default=1).\n\n");
 
     fprintf (stderr,
-    "-e, --redundant-val            Use redundant values instead of unique values\n"
-    "                               KAP will use unique values without this option.\n\n");
+    "-e, --redundant-val[=bins]     Use redundant values instead of unique values\n"
+    "                               KAP will use unique values without this option.\n"
+    "                               Optionally accepts an integer representing the\n"
+    "                               number of unique values to generate, 0 or nproc\n"
+    "                               is all unique, 1 is all redundant, and any number\n"
+    "                               between 1 and nproc will produce that many unique\n"
+    "                               values each iteration\n"
+    "\n");
 
     exit (1);
 }
@@ -285,7 +291,13 @@ parse_kap_opts (int argc, char *argv[], kap_config_t *kap_conf)
                     = (unsigned int) strtoul (optarg, NULL, 10);
                 break;
             case 'e':
-                kap_conf->redundant_val = 1;
+                if(optarg){
+                    kap_conf->redundant_val
+                        = (unsigned int) strtoul (optarg, NULL, 10);
+                }
+                else{
+                    kap_conf->redundant_val = 1;
+                }
                 break;
             default:
                 print_usage ();

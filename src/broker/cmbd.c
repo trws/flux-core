@@ -522,8 +522,10 @@ static void update_environment (ctx_t *ctx)
         oldtmp = getenv ("TMPDIR");
     if (!oldtmp)
         oldtmp = "/tmp";
-    (void)snprintf (tmpdir, sizeof (tmpdir), "%s/flux-%s-%d",
-                    oldtmp, ctx->sid, ctx->rank);
+    //TODO: add "-%d" back to the end of the string and ctx->rank to the arg
+    //list once launch has been added back
+    (void)snprintf (tmpdir, sizeof (tmpdir), "%s/flux-%s",
+                    oldtmp, ctx->sid);
     if (mkdir (tmpdir, 0700) < 0 && errno != EEXIST)
         err_exit ("mkdir %s", tmpdir);
     if (ctx->verbose)

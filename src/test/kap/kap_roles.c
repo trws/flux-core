@@ -80,7 +80,8 @@ gen_val (kap_params_t *param, uint64_t **dat, int *len)
     param->config.value_size &= VAL_MULTIPLE_CHK;
     chunk_size = param->config.value_size / VAL_UNIT_SIZE;
 
-    s = param->pers.rank * chunk_size; 
+    s = (param->pers.rank % param->config.redundant_val);
+    s *= chunk_size; 
     s += param->pers.size * param->pers.iter_count;
 
     chunk = (uint64_t *) malloc (chunk_size * sizeof(uint64_t));
