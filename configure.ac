@@ -13,6 +13,7 @@ X_AC_EXPAND_INSTALL_DIRS
 # Automake support
 ##
 AM_INIT_AUTOMAKE([subdir-objects])
+AM_SILENT_RULES([yes])
 AM_CONFIG_HEADER([config/config.h])
 AM_MAINTAINER_MODE
 
@@ -30,6 +31,10 @@ if test "$GCC" = yes; then
 fi
 AC_PROG_RANLIB
 AC_PROG_LIBTOOL
+AC_CHECK_PROG(A2X,[a2x],[a2x])
+if test "$A2X" != "a2x"; then
+  AC_MSG_ERROR([Please install asciidoc to get a2x utility.])
+fi
 
 ##
 # Checks for header files.
@@ -64,7 +69,9 @@ AX_LUA_HEADERS
 AX_LUA_LIBS
 X_AC_ZEROMQ
 X_AC_MUNGE
-PKG_CHECK_MODULES(JSON, json);
+PKG_CHECK_MODULES(JSON, json, [],
+  [PKG_CHECK_MODULES(JSON, json-c)]);
+PKG_CHECK_MODULES(UUID, uuid)
 LX_FIND_MPI
 AM_CONDITIONAL([HAVE_MPI], [test "$have_C_mpi" = yes])
 

@@ -5,7 +5,10 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir) -I$(top_srcdir)/src/include \
         -DMODULE_PATH=\"$(fluxmoddir)\" \
 	-DEXEC_PATH=\"$(fluxcmddir)\" \
-	-DCMBD_PATH=\"$(fluxlibexecdir)/cmbd\"
+	-DCMBD_PATH=\"$(fluxlibexecdir)/cmbd\" \
+	-DLUA_PATH_ADD=\"$(luadir)/?.lua\" \
+	-DLUA_CPATH_ADD=\"$(luaexecdir)/?.so\" \
+	-DMANDIR=\"$(mandir)\"
 
 fluxcmd_ldadd = \
 	$(top_builddir)/src/modules/live/liblive.la \
@@ -24,8 +27,9 @@ bin_PROGRAMS = flux
 
 flux_SOURCES = flux.c
 flux_LDADD = \
+	$(top_builddir)/src/common/libflux/libflux.la \
 	$(top_builddir)/src/common/libutil/libutil.la \
-	$(LIBZMQ)
+	$(LIBZMQ) $(LIBCZMQ)
 
 #
 # Flux subcommands
@@ -49,7 +53,8 @@ fluxcmd_PROGRAMS = \
 	flux-comms \
 	flux-comms-stats \
 	flux-kvs \
-	flux-start
+	flux-start \
+	flux-config
 
 flux_zio_LDADD = \
 	$(top_builddir)/src/common/libzio/libzio.la \
