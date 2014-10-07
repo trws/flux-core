@@ -296,7 +296,7 @@ parse_kap_opts (int argc, char *argv[], kap_config_t *kap_conf)
                         = (unsigned int) strtoul (optarg, NULL, 10);
                 }
                 else{
-                    kap_conf->redundant_val = 1;
+                    kap_conf->redundant_val = 0;
                 }
                 break;
             default:
