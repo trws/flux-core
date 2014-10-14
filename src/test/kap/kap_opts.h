@@ -17,6 +17,7 @@ typedef enum _sync_type_e {
 typedef struct _kap_config_t {
     unsigned long total_num_proc;
     unsigned long instance_num;
+    unsigned long barrier_num;
     unsigned long nproducers;
     unsigned long nconsumers;
     unsigned long value_size;
@@ -30,6 +31,9 @@ typedef struct _kap_config_t {
     unsigned int ndirs;
     unsigned int redundant_val;
     unsigned int list_config;
+    unsigned int extra_path_components;
+    unsigned int extra_path_without_directories;
+    unsigned int extra_path_divergent;
 } kap_config_t; 
 
 //!

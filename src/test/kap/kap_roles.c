@@ -18,6 +18,25 @@
  *                  STATIC FUNCTIONS                     *
  *                                                       *
  *********************************************************/
+static int
+generate_extra_path_component (kap_params_t *param, char ** buf)
+{
+    int  identifier_width = 7;
+    const char format_string[] = "%0*d%c";
+    char separator = param->extra_path_without_directories ? '_' : '.';
+    int  identifier = param->extra_path_divergent ? param->pers.rank : 0; 
+    *buf = calloc(identifier_width+1,param->extra_path_components);
+
+    for (int i=0 ; i < param->extra_path_components; i++){
+        snprintf(buf + i * (identifier_width + 1),
+                 (identifier_width+1) * param->extra_path_components,
+                 format_string,
+                 identifier_width,
+                 identifier,
+                 separator);
+    }
+    return 0;
+}
 
 /*  
     This isn't necessary but to make our testing more
@@ -45,10 +64,14 @@ create_dir_struct (kap_params_t *param)
 
     for (i=0; i < param->config.iter_producer; ++i) {
         for (j=0; j < param->config.ndirs; ++j) {
-            snprintf (d, KAP_MAX_STR, "/%s.%d/%s.%d/%s.%d", 
+            char * extra_path = NULL;
+            generate_extra_path_component(param, &extra_path);
+            snprintf (d, KAP_MAX_STR, "/%s.%d/%s.%d/%s/%s.%d", 
                 KVS_INST_DIR, (int)param->config.instance_num,
                 KVS_BASE_DIR, i,
+                extra_path,
                 KVS_SHARD_DIR, j);
+            free(extra_path);
 
             if (kvs_mkdir (param->pers.handle, d) < 0) {
                 fprintf (stderr, 
@@ -80,7 +103,7 @@ gen_val (kap_params_t *param, uint64_t **dat, int *len)
     param->config.value_size &= VAL_MULTIPLE_CHK;
     chunk_size = param->config.value_size / VAL_UNIT_SIZE;
 
-    s = param->pers.rank
+    s = param->pers.rank;
     if (param->config.redundant_val > 0) {
         s %= param->config.redundant_val;
     }

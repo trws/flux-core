@@ -412,7 +412,7 @@ personality (kap_config_t *kc, kap_personality_t *p)
 
     snprintf (bn, KAP_MAX_STR,
         "init-hb-%d",
-        (int) kc->instance_num);
+        (int) (kc->barrier_num == UINT_MAX ? kc->instance_num: kc->barrier_num) );
    
     /* to establish a clean happens-before relationship */
     if (flux_barrier (p->handle, 

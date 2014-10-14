@@ -12,6 +12,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <limits.h>
 
 #include "kap_opts.h"
 
@@ -22,6 +23,7 @@ static const struct option kap_opts[] = {
     {"help",            no_argument, 0, 'h'},
     {"list-config",     no_argument, 0, 'l'},
     {"instance-num",    required_argument, 0, 'n'},
+    {"barrier-num",     required_argument, 0, 'b'},
     {"total-num-proc",  required_argument, 0, 'T'},
     {"nproducers",      required_argument, 0, 'P'},
     {"nconsumers",      required_argument, 0, 'C'},
@@ -35,6 +37,9 @@ static const struct option kap_opts[] = {
     {"sync-type",       required_argument, 0, 's'},
     {"ndirs",           required_argument, 0, 'd'},
     {"redundant-val",   optional_argument, 0, 'e'},
+    {"extra-path-length",   required_argument, 0, 'D'},
+    {"extra-path-without-directories",   no_argument, 0, 'W'},
+    {"extra-path-divergent",   no_argument, 0, 'W'},
     { 0, 0, 0, 0 },
 };
 
@@ -127,6 +132,7 @@ kap_conf_init (kap_config_t *kap_conf)
 {
     kap_conf->total_num_proc = 0xffffffffffffffff;
     kap_conf->instance_num = 0;
+    kap_conf->barrier_num = UINT_MAX;
     kap_conf->nproducers = 0xffffffffffffffff;
     kap_conf->nconsumers = 0xffffffffffffffff;
     kap_conf->value_size = 8;
@@ -140,6 +146,9 @@ kap_conf_init (kap_config_t *kap_conf)
     kap_conf->ndirs = 1;
     kap_conf->redundant_val = 0;
     kap_conf->list_config = 0;
+    kap_conf->extra_path_components = 0;
+    kap_conf->extra_path_without_directories = 0;
+    kap_conf->extra_path_divergent = 0;
 }
 
 
@@ -204,6 +213,8 @@ print_config (kap_config_t *kap_conf)
     fprintf (fptr, 
         "   instance_num: %lu\n", kap_conf->instance_num);
     fprintf (fptr, 
+        "   barrier_num: %lu\n", kap_conf->barrier_num);
+    fprintf (fptr, 
         "   redundant_val: %u\n", kap_conf->redundant_val);
 }
 
@@ -226,6 +237,10 @@ parse_kap_opts (int argc, char *argv[], kap_config_t *kap_conf)
                 break;
             case 'n':
                 kap_conf->instance_num 
+                    = strtoul (optarg, NULL, 10);
+                break;
+            case 'b':
+                kap_conf->barrier_num
                     = strtoul (optarg, NULL, 10);
                 break;
             case 'T':
@@ -299,6 +314,16 @@ parse_kap_opts (int argc, char *argv[], kap_config_t *kap_conf)
                     kap_conf->redundant_val = 0;
                 }
                 break;
+            case 'D':
+                    kap_conf->extra_path_components = strtoul(optarg, NULL, 10);
+                break;
+            case 'W':
+                    kap_conf->extra_path_without_directories = 1;
+                break;
+            case 'I':
+                    kap_conf->extra_path_divergent = 1;
+                break;
+
             default:
                 print_usage ();
                 break;
