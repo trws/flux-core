@@ -1,5 +1,6 @@
 MAN1_FILES = \
 	flux.1 \
+	cmbd.1 \
 	flux-kvs.1 \
 	flux-keygen.1 \
 	flux-logger.1 \
@@ -38,6 +39,7 @@ CLEANFILES = $(MAN1_FILES) $(XML_FILES)
 dist_noinst_SCRIPTS = spellcheck
 
 TESTS_ENVIRONMENT = \
+	ASPELL=$(ASPELL) \
 	pws_dict=$(abs_srcdir)/spell.en.pws \
 	man_dir=$(abs_builddir)
 
