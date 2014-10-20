@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <json.h>
 #include <flux/core.h>
+#include <errno.h>
+#include <string.h>
 #include "src/common/libutil/jsonutil.h"
 #include "kap.h"
 
@@ -21,15 +23,16 @@
 static int
 generate_extra_path_component (kap_params_t *param, char ** buf)
 {
+    unsigned int i;
     int  identifier_width = 7;
     const char format_string[] = "%0*d%c";
-    char separator = param->extra_path_without_directories ? '_' : '.';
-    int  identifier = param->extra_path_divergent ? param->pers.rank : 0; 
-    *buf = calloc(identifier_width+1,param->extra_path_components);
+    char separator = param->config.extra_path_without_directories ? '_' : '.';
+    int  identifier = param->config.extra_path_divergent ? param->pers.rank : 0; 
+    *buf = calloc(identifier_width+1,param->config.extra_path_components);
 
-    for (int i=0 ; i < param->extra_path_components; i++){
-        snprintf(buf + i * (identifier_width + 1),
-                 (identifier_width+1) * param->extra_path_components,
+    for (i = 0 ; i < param->config.extra_path_components; i++){
+        snprintf((*buf) + i * (identifier_width + 1),
+                 (identifier_width+1) * param->config.extra_path_components,
                  format_string,
                  identifier_width,
                  identifier,
@@ -56,7 +59,7 @@ generate_extra_path_component (kap_params_t *param, char ** buf)
 static int
 create_dir_struct (kap_params_t *param)
 {
-    int i, j;
+    unsigned int i, j;
     char d[KAP_MAX_STR];
 
     if (param->pers.rank != 0) 
@@ -127,16 +130,20 @@ gen_val (kap_params_t *param, uint64_t **dat, int *len)
 static int
 fqkey (kap_params_t *param, int rank, char* buf, int len)
 {
+    char * extra_path = NULL;
+    generate_extra_path_component(param, &extra_path);
     snprintf (buf, len,
-              "/%s.%d/%s.%d/%s.%d/producer.%d",
+              "/%s.%d/%s.%d/%s/%s.%d/producer.%d",
               KVS_INST_DIR,
               (int) param->config.instance_num,
               KVS_BASE_DIR, 
               param->pers.iter_count,
+              extra_path,
               KVS_SHARD_DIR, 
               //rank % param->config.ndirs,
               rank / (param->pers.size / param->config.ndirs),
               rank);
+    free(extra_path);
 
     return 0;
 }
@@ -613,6 +620,39 @@ sync_prod_and_cons (kap_params_t *param)
 
     return rc;
 }
+
+#ifdef TEST_MAIN
+
+#include "src/common/libtap/tap.h"
+void
+kap_conf_init (kap_config_t *kap_conf);
+
+int main (int argc, char *argv[])
+{
+    kap_params_t p;
+
+    kap_conf_init(&(p.config));
+    p.pers.rank = 16;
+    p.pers.size = 17;
+    p.config.ndirs = 1;
+
+    const size_t buf_size = 5000;
+    char buf[buf_size];
+    
+    p.config.extra_path_components = 10;
+    p.config.extra_path_divergent = 1;
+
+    fqkey(&p, 0, buf, buf_size);
+    printf("%s\n", buf);
+
+    p.config.extra_path_divergent = 0;
+
+    fqkey(&p, 0, buf, buf_size);
+    printf("%s\n", buf);
+    return 0;
+}
+
+#endif
 
 
 /*

@@ -23,9 +23,28 @@ kap_SOURCES = \
 	kap_opts.c \
 	kap_personality.h \
 	kap_personality.c \
-	kap_roles.c
+	kap_roles.c \
+	kap_timing.c
 
 document: doc/doxy_conf.txt
 	cd doc; doxygen doxy_conf.txt
+
+TESTS = test_kap_roles
+
+test_ldadd = \
+	$(top_builddir)/src/common/libutil/libutil.la \
+	$(top_builddir)/src/common/libtap/libtap.la \
+	${LDADD}
+
+test_cppflags = \
+	-DTEST_MAIN \
+	-I$(top_srcdir)/src/common/libtap \
+	$(AM_CPPFLAGS)
+
+check_PROGRAMS += test_kap_roles
+
+test_kap_roles_SOURCES = kap_roles.c kap_personality.c kap_opts.c kap_timing.c
+test_kap_roles_CPPFLAGS = $(test_cppflags)
+test_kap_roles_LDADD = $(test_ldadd)
 
 CLEANFILES = doc/html doc/latex doc/man
