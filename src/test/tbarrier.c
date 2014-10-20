@@ -26,68 +26,88 @@
 #include "config.h"
 #endif
 #include <getopt.h>
+#include <json.h>
+#include <assert.h>
+#include <libgen.h>
+#include <czmq.h>
 #include <flux/core.h>
 
 #include "src/common/libutil/log.h"
+#include "src/common/libutil/monotime.h"
+#include "src/common/libutil/xzmalloc.h"
 
-
-#define OPTIONS "hfp"
+#define OPTIONS "hn:t:"
 static const struct option longopts[] = {
     {"help",       no_argument,        0, 'h'},
-    {"force",      no_argument,        0, 'f'},
-    {"plain",      no_argument,        0, 'p'},
+    {"nprocs",     required_argument,  0, 'n'},
+    {"test-iterations", required_argument,  0, 't'},
     { 0, 0, 0, 0 },
 };
+
 
 void usage (void)
 {
     fprintf (stderr,
-"Usage: flux-keygen [--force] [--plain]\n"
+"Usage: tbarrier [--nprocs N] [--test-iterations N] [name]\n"
 );
     exit (1);
 }
 
 int main (int argc, char *argv[])
 {
+    flux_t h;
     int ch;
-    flux_sec_t sec;
-    bool force = false;
-    bool plain = false;
-    char *secdir;
+    struct timespec t0;
+    char *name = NULL;
+    int nprocs = 1;
+    int iter = 1;
+    int i;
 
-    log_init ("flux-keygen");
+    log_init ("tbarrier");
 
     while ((ch = getopt_long (argc, argv, OPTIONS, longopts, NULL)) != -1) {
         switch (ch) {
             case 'h': /* --help */
                 usage ();
                 break;
-            case 'f': /* --force */
-                force = true;
+            case 'n': /* --nprocs N */
+                nprocs = strtoul (optarg, NULL, 10);
                 break;
-            case 'p': /* --plain */
-                plain = true;
+            case 't': /* --test-iterations N */
+                iter = strtoul (optarg, NULL, 10);
                 break;
             default:
                 usage ();
                 break;
         }
     }
-    if (optind < argc)
+    if (optind < argc - 1)
         usage ();
-    if (!(sec = flux_sec_create ()))
-        err_exit ("flux_sec_create");
-    if (!(secdir = getenv ("FLUX_SEC_DIRECTORY")))
-        msg_exit ("FLUX_SEC_DIRECTORY is not set");
-    flux_sec_set_directory (sec, secdir);
-    if (plain && flux_sec_enable (sec, FLUX_SEC_TYPE_PLAIN) < 0)
-        msg_exit ("PLAIN security is not available");
-    if (flux_sec_keygen (sec, force, true) < 0)
-        msg_exit ("%s", flux_sec_errstr (sec));
-    flux_sec_destroy (sec);
+    if (optind < argc)
+        name = argv[optind++];
 
+    if (!(h = flux_api_open ()))
+        err_exit ("flux_api_open");
+
+    for (i = 0; i < iter; i++) {
+        char *tname = NULL;
+        monotime (&t0);
+        if (name)
+            tname = xasprintf ("%s.%d", name, i);
+        if (flux_barrier (h, tname, nprocs) < 0) {
+            if (errno == EINVAL && tname == NULL)
+                msg_exit ("%s", "provide barrier name if not running as LWJ");
+            else
+                err_exit ("flux_barrier");
+        }
+        printf ("barrier name=%s nprocs=%d time=%0.3f ms\n",
+             tname ? tname : "NULL", nprocs, monotime_since (t0));
+        if (tname)
+            free (tname);
+    }
+
+    flux_api_close (h);
     log_fini ();
-
     return 0;
 }
 

@@ -8,13 +8,13 @@
 
 typedef struct kvsdir_struct *kvsdir_t;
 
-typedef void (KVSSetF(const char *key, json_object *val, void *arg,int errnum));
-typedef void (KVSSetDirF(const char *key, kvsdir_t dir, void *arg, int errnum));
-typedef void (KVSSetStringF(const char *key, const char *val, void *arg, int errnum));
-typedef void (KVSSetIntF(const char *key, int val, void *arg, int errnum));
-typedef void (KVSSetInt64F(const char *key, int64_t val, void *arg,int errnum));
-typedef void (KVSSetDoubleF(const char *key, double val, void *arg,int errnum));
-typedef void (KVSSetBooleanF(const char *key, bool val, void *arg, int errnum));
+typedef int (KVSSetF(const char *key, json_object *val, void *arg,int errnum));
+typedef int (KVSSetDirF(const char *key, kvsdir_t dir, void *arg, int errnum));
+typedef int (KVSSetStringF(const char *key, const char *val, void *arg, int errnum));
+typedef int (KVSSetIntF(const char *key, int val, void *arg, int errnum));
+typedef int (KVSSetInt64F(const char *key, int64_t val, void *arg,int errnum));
+typedef int (KVSSetDoubleF(const char *key, double val, void *arg,int errnum));
+typedef int (KVSSetBooleanF(const char *key, bool val, void *arg, int errnum));
 
 /* Destroy a kvsdir object returned from kvs_get_dir() or kvsdir_get_dir()
  */
@@ -178,6 +178,13 @@ int kvsdir_put_boolean (kvsdir_t dir, const char *key, bool val);
 int kvsdir_unlink (kvsdir_t dir, const char *key);
 int kvsdir_symlink (kvsdir_t dir, const char *key, const char *target);
 int kvsdir_mkdir (kvsdir_t dir, const char *key);
+
+/* Load flux_conf_t cache from KVS config.* namespace
+ */
+int kvs_conf_load (flux_t h, flux_conf_t cf);
+/* Save flux_conf_t cache to KVS config.* namespace
+ */
+int kvs_conf_save (flux_t h, flux_conf_t cf);
 
 #endif /* !_FLUX_CORE_KVS_H */
 

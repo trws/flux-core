@@ -1,17 +1,7 @@
-SUBDIRS = src doc t
-
-sysconf_DATA = flux.conf
-
-flux.conf: $(srcdir)/flux.conf.in
-	$(AM_V_GEN)sed -e 's![@]abs_top_srcdir[@]!$(abs_top_srcdir)!g' \
-	    -e 's![@]abs_top_builddir[@]!$(abs_top_builddir)!g' \
-	    $(srcdir)/flux.conf.in > $@
+SUBDIRS = src doc etc t
 
 EXTRA_DIST = \
+	config/tap-driver.sh \
 	META \
 	DISCLAIMER.LLNS \
-	README.md \
-	flux.conf.in
-
-CLEANFILES = flux.conf
-
+	README.md
