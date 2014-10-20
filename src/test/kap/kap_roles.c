@@ -649,6 +649,12 @@ int main (int argc, char *argv[])
 
     fqkey(&p, 0, buf, buf_size);
     printf("%s\n", buf);
+
+    p.config.extra_path_without_directories = 1;
+
+    fqkey(&p, 0, buf, buf_size);
+    printf("%s\n", buf);
+
     return 0;
 }
 

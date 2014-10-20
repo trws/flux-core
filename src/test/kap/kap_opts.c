@@ -216,6 +216,12 @@ print_config (kap_config_t *kap_conf)
         "   barrier_num: %lu\n", kap_conf->barrier_num);
     fprintf (fptr, 
         "   redundant_val: %u\n", kap_conf->redundant_val);
+    fprintf (fptr, 
+        "   extra_path_components: %u\n", kap_conf->extra_path_components);
+    fprintf (fptr, 
+        "   extra_path_divergent: %u\n", kap_conf->extra_path_divergent);
+    fprintf (fptr, 
+        "   extra_path_without_directories: %u\n", kap_conf->extra_path_without_directories);
 }
 
 
