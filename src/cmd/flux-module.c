@@ -40,6 +40,9 @@
 #include "src/common/libutil/readall.h"
 #include "src/common/libutil/nodeset.h"
 
+#define ERR_EXIT_WITH_LINE(_ERR, ...) \
+  err_exit("%s:%d:" _ERR, __FILE__, __LINE__, ##__VA_ARGS__)
+
 const int max_idle = 99;
 
 typedef struct {
@@ -245,7 +248,7 @@ void mod_insmod (flux_t h, opt_t opt)
         usage ();
     if (strchr (opt.argv[0], '/')) {
         if (!(modpath = realpath (opt.argv[0], NULL)))
-            oom ();
+            ERR_EXIT_WITH_LINE ("realpath");
         if (!(modname = flux_modname (modpath)))
             msg_exit ("%s", dlerror ());
     } else {
@@ -278,7 +281,7 @@ void mod_insmod (flux_t h, opt_t opt)
         free (json_str);
     } else {
         if (flux_modctl_load (h, opt.nodeset, modpath, opt.argc, opt.argv) < 0)
-            err_exit ("%s", modname);
+            ERR_EXIT_WITH_LINE ("%s", modname);
     }
     if (modpath)
         free (modpath);
@@ -312,7 +315,7 @@ void mod_rmmod (flux_t h, opt_t opt)
         free (json_str);
     } else {
         if (flux_modctl_unload (h, opt.nodeset, modname) < 0)
-            err_exit ("%s", modname);
+            ERR_EXIT_WITH_LINE ("%s", modname);
     }
 }
 
@@ -449,7 +452,7 @@ void mod_lsmod (flux_t h, opt_t opt)
         free (topic);
     } else {
         if (flux_modctl_list (h, service, opt.nodeset, lsmod_print_cb, NULL) < 0)
-            err_exit ("modctl_list");
+            ERR_EXIT_WITH_LINE ("modctl_list");
     }
 }
 

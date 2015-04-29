@@ -150,6 +150,7 @@ AC_CONFIG_FILES( \
   src/modules/mecho/Makefile \
   src/modules/barrier/Makefile \
   src/modules/wreck/Makefile \
+  src/modules/pymod/Makefile \
   src/test/Makefile \
   src/test/kap/Makefile \
   src/test/request/Makefile \
