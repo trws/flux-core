@@ -58,6 +58,7 @@ void usage (void)
 "Usage: flux-comms-stats [--scale N] [--type int|double] --parse a[.b]... name\n"
 "       flux-comms-stats --clear-all name\n"
 "       flux-comms-stats --clear name\n"
+"       flux-comms-stats --rusage name\n"
 );
     exit (1);
 }
@@ -126,8 +127,8 @@ int main (int argc, char *argv[])
     if (Copt && nodeid != FLUX_NODEID_ANY)
         msg_exit ("Use --clear not --clear-all to clear a single node.");
 
-    if (!(h = flux_api_open ()))
-        err_exit ("flux_api_open");
+    if (!(h = flux_open (NULL, 0)))
+        err_exit ("flux_open");
 
     if (copt) {
         char *topic = xasprintf ("%s.stats.clear", target);
@@ -152,7 +153,7 @@ int main (int argc, char *argv[])
         json_object_put (response);
         free (topic);
     }
-    flux_api_close (h);
+    flux_close (h);
     log_fini ();
     return 0;
 }

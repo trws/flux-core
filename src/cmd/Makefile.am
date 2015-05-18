@@ -4,6 +4,7 @@ AM_CPPFLAGS = \
 	$(JSON_CFLAGS) \
 	-I$(top_srcdir) -I$(top_srcdir)/src/include \
         -DMODULE_PATH=\"$(fluxmoddir)\" \
+        -DCONNECTOR_PATH=\"$(fluxconnectordir)\" \
 	-DEXEC_PATH=\"$(fluxcmddir)\" \
 	-DBROKER_PATH=\"$(fluxlibexecdir)/flux-broker\" \
 	-DLUA_PATH_ADD=\"$(luadir)/?.lua\" \
@@ -13,7 +14,6 @@ AM_CPPFLAGS = \
 fluxcmd_ldadd = \
 	$(top_builddir)/src/modules/live/liblive.la \
 	$(top_builddir)/src/modules/kvs/libkvs.la \
-	$(top_builddir)/src/modules/api/libapi.la \
 	$(top_builddir)/src/common/libflux/libflux.la \
 	$(top_builddir)/src/common/libutil/libutil.la \
 	$(top_builddir)/src/common/liblsd/liblsd.la \

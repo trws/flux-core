@@ -119,7 +119,6 @@ typedef struct {
     zhash_t *children;
     bool hb_subscribed;
     red_t r;
-    bool comms_ready;
     ns_t *ns;           /* master only */
     JSON topo;          /* master only */
     flux_t h;
@@ -355,7 +354,7 @@ static int cstate_cb (flux_t h, int typemask, zmsg_t **zmsg, void *arg)
     cstate_t ostate, nstate;
     int rc = 0;
 
-    if (flux_msg_decode (*zmsg, NULL, &event) < 0 || event == NULL
+    if (flux_json_event_decode (*zmsg, &event) < 0
             || !Jget_int (event, "epoch", &epoch)
             || !Jget_int (event, "parent", &parent)
             || !Jget_int (event, "rank", &rank)
@@ -421,7 +420,7 @@ static int hb_cb (flux_t h, int typemask, zmsg_t **zmsg, void *arg)
     zlist_t *keys = NULL;
     char *key;
 
-    if (flux_msg_decode (*zmsg, NULL, &event) < 0 || event == NULL
+    if (flux_json_event_decode (*zmsg, &event) < 0
             || !Jget_int (event, "epoch", &ctx->epoch)) {
         flux_log (h, LOG_ERR, "%s: bad message", __FUNCTION__);
         goto done;
@@ -523,21 +522,21 @@ static int goodbye_request_cb (flux_t h, int typemask, zmsg_t **zmsg, void *arg)
     int rank, prank;
     char *rankstr = NULL;
 
-    if (flux_msg_decode (*zmsg, NULL, &request) < 0 || request == NULL
+    if (flux_json_request_decode (*zmsg, &request) < 0
                             || !Jget_int (request, "parent-rank", &prank)
                             || !Jget_int (request, "rank", &rank)) {
         flux_log (ctx->h, LOG_ERR, "%s: bad message", __FUNCTION__);
         goto done;
     }
     if (prank != ctx->rank) { /* in case misdirected to new parent */
-        flux_respond_errnum (h, zmsg, EINVAL);
+        flux_err_respond (h, EINVAL, zmsg);
         goto done;
     }
     if (asprintf (&rankstr, "%d", rank) < 0)
         oom ();
     zhash_delete (ctx->children, rankstr);
     manage_subscriptions (ctx);
-    flux_respond_errnum (h, zmsg, 0);
+    flux_err_respond (h, 0, zmsg);
 done:
     if (rankstr)
         free (rankstr);
@@ -648,7 +647,6 @@ done:
 
 /* If ctx->ns is uninitialized, initialize it, using kvs data if any.
  * If ctx->ns is initialized, write it to kvs.
- * If nodeset_count (ctx->ns->unknown) drops to zero, publish "live.ready".
  */
 static int ns_sync (ctx_t *ctx)
 {
@@ -671,10 +669,6 @@ static int ns_sync (ctx_t *ctx)
     if (writekvs) {
         if (ns_tokvs (ctx) < 0)
             goto done;
-    }
-    if (!ctx->comms_ready && nodeset_count (ctx->ns->unknown) == 0) {
-        (void)flux_event_send (ctx->h, NULL, "live.ready");
-        ctx->comms_ready= true;
     }
     rc = 0;
 done:
@@ -896,7 +890,7 @@ static int push_request_cb (flux_t h, int typemask, zmsg_t **zmsg, void *arg)
     ctx_t *ctx = arg;
     JSON request = NULL;
 
-    if (flux_msg_decode (*zmsg, NULL, &request) < 0 || request == NULL) {
+    if (flux_json_request_decode (*zmsg, &request) < 0) {
         flux_log (ctx->h, LOG_ERR, "%s: bad message", __FUNCTION__);
         goto done;
     }
@@ -918,7 +912,7 @@ static int hello_request_cb (flux_t h, int typemask, zmsg_t **zmsg, void *arg)
     int rank;
     child_t *c;
 
-    if (flux_msg_decode (*zmsg, NULL, &request) < 0 || request == NULL
+    if (flux_json_request_decode (*zmsg, &request) < 0
                             || !Jget_int (request, "rank", &rank)) {
         flux_log (ctx->h, LOG_ERR, "%s: bad message", __FUNCTION__);
         goto done;
@@ -941,7 +935,7 @@ static int hello_request_cb (flux_t h, int typemask, zmsg_t **zmsg, void *arg)
     response = parents_tojson (ctx);
     parent_destroy (zlist_pop (ctx->parents));
 
-    flux_respond (h, zmsg, response);
+    flux_json_respond (h, response, zmsg);
 done:
     Jput (request);
     Jput (response);
@@ -974,9 +968,9 @@ static int failover_request_cb (flux_t h, int typemask, zmsg_t **zmsg,void *arg)
     ctx_t *ctx = arg;
 
     if (failover (ctx) < 0)
-        flux_respond_errnum (h, zmsg, errno);
+        flux_err_respond (h, errno, zmsg);
     else
-        flux_respond_errnum (h, zmsg, 0);
+        flux_err_respond (h, 0, zmsg);
 
     return 0;
 }
@@ -986,9 +980,9 @@ static int recover_request_cb (flux_t h, int typemask, zmsg_t **zmsg,void *arg)
     ctx_t *ctx = arg;
 
     if (recover (ctx) < 0)
-        flux_respond_errnum (h, zmsg, errno);
+        flux_err_respond (h, errno, zmsg);
     else
-        flux_respond_errnum (h, zmsg, 0);
+        flux_err_respond (h, 0, zmsg);
 
     return 0;
 }

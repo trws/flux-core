@@ -205,13 +205,13 @@ static int l_flux_destroy (lua_State *L)
 {
     flux_t f = lua_get_flux (L, 1);
     l_flux_reftable_unref (L, f);
-    flux_api_close (f);
+    flux_close (f);
     return (0);
 }
 
 static int l_flux_new (lua_State *L)
 {
-    flux_t f = flux_api_open ();
+    flux_t f = flux_open (NULL, 0);
     if (f == NULL)
         return lua_pusherror (L, strerror (errno));
     return (lua_push_flux_handle (L, f));
@@ -335,9 +335,10 @@ static int l_flux_recv (lua_State *L)
         return lua_pusherror (L, strerror (errno));
 
     if (flux_msg_get_errnum (zmsg, &errnum) < 0)
-        return lua_pusherror (L, "flux_msg_get_errnum: %s", strerror (errno));
+        return lua_pusherror (L, strerror (errno));
 
-    if (errnum == 0 && flux_msg_decode (zmsg, &tag, &o) < 0)
+    if (errnum == 0 && (flux_msg_get_topic (zmsg, &tag) < 0
+                     || flux_msg_get_payload_json (zmsg, &o) < 0))
         return lua_pusherror (L, strerror (errno));
 
     if (o != NULL) {
@@ -787,7 +788,7 @@ static int l_f_zi_resp_cb (lua_State *L,
     struct zmsg_info *zi, json_object *resp, void *arg)
 {
     flux_t f = arg;
-    return l_pushresult (L, flux_respond (f, zmsg_info_zmsg (zi), resp));
+    return l_pushresult (L, flux_json_respond (f, resp, zmsg_info_zmsg (zi)));
 }
 
 static int create_and_push_zmsg_info (lua_State *L,

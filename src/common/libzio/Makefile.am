@@ -22,7 +22,6 @@ check_PROGRAMS = \
 libzio_deps = \
 	$(top_builddir)/src/common/libzio/libzio.la \
 	$(top_builddir)/src/modules/kvs/libkvs.la \
-	$(top_builddir)/src/modules/api/libapi.la \
 	$(top_builddir)/src/common/libflux/libflux.la \
 	$(top_builddir)/src/common/libutil/libutil.la \
 	$(top_builddir)/src/common/liblsd/liblsd.la \
@@ -30,7 +29,7 @@ libzio_deps = \
 
 LDADD = $(libzio_deps) \
 	$(JSON_LIBS) $(LIBCZMQ) $(LIBZMQ) $(LIBMUNGE) \
-	$(LIBPTHREAD)
+	$(LIBPTHREAD) $(LIBDL)
 
 $(libzio_deps):
 	@(cd `dirname $@` && $(MAKE) `basename $@`)

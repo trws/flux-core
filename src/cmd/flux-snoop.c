@@ -48,7 +48,7 @@ static char *suppressed[] = { "cmb.info", "cmb.log", "cmb.pub" };
 
 void usage (void)
 {
-    fprintf (stderr, 
+    fprintf (stderr,
 "Usage: flux-snoop OPTIONS [topic [topic...]]\n"
 "  -a,--all               Do not suppress cmb.info, cmb.log, cmb.pub\n"
 "  -l,--long              Display long message format\n"
@@ -121,8 +121,8 @@ int main (int argc, char *argv[])
     if (!(secdir = getenv ("FLUX_SEC_DIRECTORY")))
         msg_exit ("FLUX_SEC_DIRECTORY is not set");
 
-    if (!(h = flux_api_open ()))
-        err_exit ("flux_api_open");
+    if (!(h = flux_open (NULL, 0)))
+        err_exit ("flux_open");
     if (!(uri = flux_getattr (h, rank, "snoop-uri")))
         err_exit ("snoop-uri");
 
@@ -189,7 +189,7 @@ int main (int argc, char *argv[])
 
     zlist_destroy (&subscriptions);
     free (uri);
-    flux_api_close (h);
+    flux_close (h);
     log_fini ();
     return 0;
 }
@@ -208,17 +208,17 @@ static void *connect_snoop (zctx_t *zctx, flux_sec_t sec, const char *uri)
     return s;
 }
 
-static bool suppress (const char *tag)
+static bool suppress (const char *topic)
 {
     int i;
 
     for (i = 0; i < sizeof (suppressed)/sizeof (suppressed[0]); i++)
-        if (!strcmp (tag, suppressed[i]))
+        if (!strcmp (topic, suppressed[i]))
             return true;
     return false;
 }
 
-static bool subscribed (const char *tag)
+static bool subscribed (const char *topic)
 {
     char *sub;
 
@@ -226,7 +226,7 @@ static bool subscribed (const char *tag)
         return true;
     while (sub != NULL) {
         int len = strlen (sub);
-        if (strlen (tag) >= len && !strncmp (tag, sub, len))
+        if (strlen (topic) >= len && !strncmp (topic, sub, len))
             return true;
         sub = zlist_next (subscriptions);
     }
@@ -239,9 +239,9 @@ static int snoop_cb (zloop_t *zloop, zmq_pollitem_t *item, void *arg)
     zmsg_t *zmsg;
 
     if ((zmsg = zmsg_recv (zs))) {
-        char *tag = flux_msg_tag (zmsg);
-
-        if (!tag || (subscribed (tag) && (aopt || !suppress (tag)))) {
+        char *topic = NULL;
+        if (flux_msg_get_topic (zmsg, &topic) < 0
+                 || (subscribed (topic) && (aopt || !suppress (topic)))) {
             if (lopt) {
                 zmsg_dump (zmsg);
             } else {
@@ -252,8 +252,8 @@ static int snoop_cb (zloop_t *zloop, zmq_pollitem_t *item, void *arg)
                 zdump_fprint (stderr, zmsg, pfx);
             }
         }
-        if (tag)
-            free (tag);
+        if (topic)
+            free (topic);
         zmsg_destroy (&zmsg);
     }
     return 0;
