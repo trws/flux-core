@@ -24,7 +24,7 @@ class ArbitraryWrapperThunk(object):
             self.fluxfun = True
 
         self.fun = None
-        for lib in (fi.f, fi.f_lib):
+        for lib in (fi.f,fi.f_lib):
             try:
                 #try it bare
                 self.fun = lib.__getattribute__(name)
@@ -75,6 +75,8 @@ class Flux(object):
                                         topic,
                                         callback,
                                         arg)
+    def reactor_start(self):
+        return fi.f.flux_reactor_start(self.handle)
 
     def log(self, lev, fmt):
         return fi.f.flux_log(self.handle, lev, fmt)

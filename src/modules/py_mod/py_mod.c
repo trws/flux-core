@@ -55,7 +55,6 @@ int mod_main (flux_t h, zhash_t *args_in)
         flux_log(h, LOG_ERR, "Module name must be specified with --module");
         return EINVAL;
     }
-    zhash_delete(args, "--module");
     flux_log(h, LOG_ERR, "loading module named: %s\n", module_name);
 
     PyObject *trampoline_module_name = PyString_FromString("fluxmod_ctypes");
@@ -93,6 +92,7 @@ int mod_main (flux_t h, zhash_t *args_in)
             Py_DECREF(arg_dict);
         }
     }
+    zhash_delete(args, "--module");
 
     /* old test code, remove before pushing in */
     /* PyRun_SimpleString( "from time import time,ctime\n" */

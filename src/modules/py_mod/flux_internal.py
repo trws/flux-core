@@ -1,6 +1,6 @@
 import ctypes as ct
 # Try loading the external so
-f_lib = ct.CDLL("/g/g12/scogland/projects/flux/build/src/lib/libcore/.libs/libflux-core.so", mode=ct.RTLD_LOCAL)
+f_lib = ct.CDLL("/g/g12/scogland/projects/flux/build/src/common/.libs/libflux-core.so", mode=ct.RTLD_GLOBAL)
 # Load the currently executing binary as a module
 f = ct.CDLL(None)
 f.flux_log.restype = ct.c_int
@@ -12,6 +12,7 @@ f.flux_event_subscribe.argtypes = [ct.c_void_p, ct.c_char_p]
 f.flux_event_subscribe.restype = ct.c_int
 f.flux_event_subscribe.argtypes = [ct.c_void_p, ct.c_char_p]
 f.flux_reactor_start.restype = ct.c_int
+f.flux_reactor_start.argtypes = [ct.c_void_p,]
 
 MsgHandlerProto = ct.CFUNCTYPE(ct.c_int, ct.c_void_p, ct.c_int, ct.POINTER(ct.c_void_p), ct.c_void_p)
 
