@@ -5,7 +5,7 @@ def mod_main_trampoline(name, encapsulated_handle, args):
     print "trampoline entered"
     #generate a flux wrapper class instance from the handle
     flux_instance = flux.Flux(flux_internal.get_handle_from_capsule(encapsulated_handle))
-    print "flux instance retrieved"
+    print "flux instance retrieved, loading:", name
     #import the user's module dynamically
     user_mod = __import__(name)
     print "user module loaded:", name

@@ -20,20 +20,19 @@ class ArbitraryWrapperThunk(object):
     """ Wrap API functions to interpose the flux object where appropriate"""
     def __init__(self, handle, name):
         self.handle = handle
-        if re.match('^flux_.*', name) or re.match("^kvs_.*", name):
-            self.fluxfun = True
+        self.fluxfun = False
 
         self.fun = None
         for lib in (fi.f,fi.f_lib):
             try:
                 #try it bare
-                self.fun = lib.__getattribute__(name)
+                self.fun = getattr(lib,name)
                 break
             except AttributeError:
                 pass
             try:
                 #try it with the flux_ prepended
-                self.fun = lib.__getattribute__("flux_" + name)
+                self.fun = getattr(lib, "flux_" + name)
                 self.fluxfun = True
                 break
             except AttributeError:
