@@ -11,6 +11,7 @@ fluxmod_LTLIBRARIES = pymod.la
 
 fluxmod_libadd = \
 	$(top_builddir)/src/common/libflux-core.la \
+	$(top_builddir)/src/modules/libmrpc/libmrpc.la \
 	$(JSON_LIBS) $(LIBZMQ) $(LIBCZMQ)
 
 fluxmod_ldflags = -avoid-version -module -shared -export-dynamic \

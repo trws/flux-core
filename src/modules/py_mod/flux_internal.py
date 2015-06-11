@@ -1,6 +1,7 @@
 import ctypes as ct
+libs = []
+libs.append(ct.CDLL("libflux-core.so", mode=ct.RTLD_GLOBAL))
 # Try loading the external so
-f_lib = ct.CDLL("/g/g12/scogland/projects/flux/flux-core/src/common/.libs/libflux-core.so", mode=ct.RTLD_GLOBAL)
 # Load the currently executing binary as a module
 f = ct.CDLL(None)
 f.flux_log.restype = ct.c_int

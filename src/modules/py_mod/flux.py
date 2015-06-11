@@ -23,7 +23,7 @@ class ArbitraryWrapperThunk(object):
         self.fluxfun = False
 
         self.fun = None
-        for lib in (fi.f,fi.f_lib):
+        for lib in fi.libs:
             try:
                 #try it bare
                 self.fun = getattr(lib,name)
