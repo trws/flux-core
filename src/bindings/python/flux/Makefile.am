@@ -71,5 +71,5 @@ clean-local: clean-local-check
 
 .PHONY: clean-local-check
 clean-local-check:
-	find -name '*.py' -and -type s -print0 | xargs rm
+	find -name '*.py' -and -type s -print0 | xargs -0 rm -f
 
