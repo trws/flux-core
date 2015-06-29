@@ -30,40 +30,64 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <flux/core.h>
+
+void add_if_not_present(PyObject *list, const char* path){
+    if(path){
+        PyObject *pymod_path = PyString_FromString(path);
+        if (!PySequence_Contains(list, pymod_path)){
+            PyList_Append(list, pymod_path);
+        }else{
+            Py_DECREF(pymod_path);
+        }
+    }
+}
+
+void print_usage(){
+    printf("pymod usage: flux module load pymod --module=<modname> [--path=<module path>] [--verbose] [--help]]\n");
+}
 
 int mod_main (flux_t h, zhash_t *args_in)
 {
     zhash_t *args = zhash_dup(args_in);
     Py_SetProgramName("pymod");
     Py_Initialize();
+    flux_log(h, LOG_ERR, "in pymod mod_main");
+
+    if(zhash_lookup(args, "--help")){
+        print_usage();
+        return 0;
+    }
 
     PyObject *search_path = PySys_GetObject("path");
+    _Bool verbose = (zhash_lookup(args, "--path") != NULL);
 
-    //TODO: make this use the flux module search path to find trampoline
-    PyList_Append(search_path, PyString_FromString("/g/g12/scogland/projects/flux/flux-core/src/modules/pymod"));
+    // Add installation search paths
     char * module_path = zhash_lookup(args, "--path");
-    if(module_path){
-        PyList_Append(search_path, PyString_FromString(module_path));
-    }
+    add_if_not_present(search_path, module_path);
+    add_if_not_present(search_path, FLUX_PYTHON_PATH);
+
     PySys_SetObject("path", search_path);
+    if(verbose){
+        PyObject_Print(search_path, stderr, 0);
+    }
 
     char * module_name = zhash_lookup(args, "--module");
     if(!module_name){
+        print_usage();
         flux_log(h, LOG_ERR, "Module name must be specified with --module");
         return EINVAL;
     }
     flux_log(h, LOG_ERR, "loading module named: %s\n", module_name);
 
-    PyObject *trampoline_module_name = PyString_FromString("fluxmod_ctypes");
-    PyObject *module = PyImport_Import(trampoline_module_name);
+    PyObject *module = PyImport_ImportModule("flux.core");
     if(!module){
         PyErr_Print();
         return EINVAL;
     }
-    Py_DECREF(trampoline_module_name);
 
     if(module){
         PyObject *mod_main = PyObject_GetAttrString(module, "mod_main_trampoline");
@@ -71,7 +95,7 @@ int mod_main (flux_t h, zhash_t *args_in)
             //maybe unpack args directly? probably easier to use a dict
             PyObject *py_args = PyTuple_New(3);
             PyTuple_SetItem(py_args, 0, PyString_FromString(module_name));
-            PyTuple_SetItem(py_args, 1, PyCapsule_New(h, "flux-handle", NULL));
+            PyTuple_SetItem(py_args, 1, PyLong_FromVoidPtr(h));
 
             //Convert zhash to native python dict, should preserve mods
             //through switch to argc-style arguments

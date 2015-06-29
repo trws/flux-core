@@ -87,6 +87,7 @@ int main (int argc, char *argv[])
             oom ();
         argz_stringify (command, len, ' ');
     }
+    printf("COMMAND: %s\n", command);
 
     /* Allow unlimited core dumps.
      */

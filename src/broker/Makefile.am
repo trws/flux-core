@@ -37,4 +37,11 @@ flux_broker_LDADD = \
 	$(top_builddir)/src/common/libflux-core.la \
 	$(top_builddir)/src/common/libflux-internal.la 
 
-flux_broker_LDFLAGS =
+broker_ldflags = 
+
+if HAVE_PYTHON
+#allow the broker to find the python library at runtime
+broker_ldflags += -rpath $(PYTHON_PREFIX)/lib
+endif
+
+flux_broker_LDFLAGS = ${broker_ldflags}

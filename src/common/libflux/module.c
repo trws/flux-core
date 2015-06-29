@@ -212,6 +212,12 @@ char *flux_modname(const char *path)
         if ((np = dlsym (dso, "mod_name")) && *np)
             name = xstrdup (*np);
         dlclose (dso);
+    }else{
+        // Another reporting method may be warranted here, but when a dynamic
+        // library dependency doesn't resolve, it really helps to know that's
+        // the error.  Otherwise it prints as "invalid argument" from the
+        // broker.
+        fprintf(stderr, "dlopen error: %s\n", dlerror());
     }
     return name;
 }
