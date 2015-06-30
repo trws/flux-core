@@ -6,7 +6,7 @@ AM_LDFLAGS = -avoid-version -module -Wl,--no-undefined  $(PYTHON_LDFLAGS) -Wl,-r
 MAKE_BINDING=$(top_srcdir)/src/bindings/python/make_binding.py
 SUFFIXES = _build.py
 
-common_libs = $(top_builddir)/src/common/libflux-core.la  $(JSON_LDFLAGS) 
+common_libs = $(top_builddir)/src/common/libflux-core.la  $(JSON_LIBS) 
 
 _build.py.c:
 	$(PYTHON) $*_build.py
