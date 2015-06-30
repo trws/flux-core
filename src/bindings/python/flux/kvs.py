@@ -24,14 +24,17 @@ class KVSHandle(Wrapper):
 class KVSDir(WrapperPimpl,collections.MutableMapping):
   class InnerWrapper(Wrapper):
     def __init__(self, flux_handle=None, path='.', handle=None):
+      global raw
       if flux_handle is None and handle is None:
         raise ValueError("flux_handle must be a valid Flux object or handle must be a valid kvsdir cdata pointer")
       if isinstance(flux_handle, WrapperBase):
         flux_handle = flux_handle.handle
       if handle is None:
         d = ffi.new("kvsdir_t [1]")
-        lib.kvs_get_dir(flux_handle, d, path)
+        raw.kvs_get_dir(flux_handle, d, path)
         handle = d[0]
+        if handle is None or handle == ffi.NULL:
+          raise IOError(errno.ENOENT, os.strerror(errno.ENOENT))
 
       super(self.__class__, self).__init__(ffi, lib, handle=handle,
                                        match=ffi.typeof('kvsdir_t'),
@@ -49,7 +52,8 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
       self.pimpl = self.InnerWrapper(flux_handle, path, handle)
 
   def commit(self):
-    lib.kvs_commit(self.fh.handle)
+    global raw
+    raw.kvs_commit(self.fh.handle)
 
   def __getitem__(self, key):
     try:
