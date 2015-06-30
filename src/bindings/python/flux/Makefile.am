@@ -10,7 +10,7 @@ _build.py.c:
 	$(PYTHON) $*_build.py
 
 
-_core_build.py: $(MAKE_BINDING) $(top_builddir)/src/common/libflux-core.la 
+_core_build.py: $(MAKE_BINDING)
 	$(PYTHON) $(MAKE_BINDING) --path $(top_srcdir)/src/common/libflux \
 	  			  --package flux \
 	                          --modname _core \
@@ -23,6 +23,7 @@ fluxpy_LTLIBRARIES = _core.la _barrier.la _mrpc.la _kvs.la
 
 _core_la_SOURCES = _core.c
 _core_la_LIBADD = $(top_builddir)/src/common/libflux-core.la  
+_core_la_DEPENDENCIES = _core_build.py
 
 _barrier_build.py: $(top_srcdir)/src/modules/barrier/barrier.h $(MAKE_BINDING) _core_build.py
 	$(PYTHON) $(MAKE_BINDING) --path $(top_srcdir)/src/modules/barrier \
@@ -34,6 +35,7 @@ _barrier_build.py: $(top_srcdir)/src/modules/barrier/barrier.h $(MAKE_BINDING) _
 _barrier_la_SOURCES = _barrier.c
 _barrier_la_CPPFLAGS = -I$(top_srcdir)/src/modules/barrier
 _barrier_la_LIBADD = $(top_builddir)/src/modules/barrier/libbarrier.la $(top_builddir)/src/common/libflux-core.la
+_barrier_la_DEPENDENCIES = _barrier_build.py
 
 
 _mrpc_build.py: $(top_srcdir)/src/modules/libmrpc/mrpc.h $(MAKE_BINDING) _core_build.py
@@ -46,6 +48,7 @@ _mrpc_build.py: $(top_srcdir)/src/modules/libmrpc/mrpc.h $(MAKE_BINDING) _core_b
 _mrpc_la_SOURCES = _mrpc.c
 _mrpc_la_CPPFLAGS = -I$(top_srcdir)/src/modules/libmrpc
 _mrpc_la_LIBADD = $(top_builddir)/src/modules/libmrpc/libmrpc.la $(top_builddir)/src/common/libflux-core.la $(JSON_LDFLAGS) 
+_mrpc_la_DEPENDENCIES = _mrpc_build.py
 
 _kvs_build.py: $(top_srcdir)/src/modules/kvs/kvs.h $(MAKE_BINDING) _core_build.py
 	$(PYTHON) $(MAKE_BINDING) --path $(top_srcdir)/src/modules/kvs \
@@ -57,6 +60,7 @@ _kvs_build.py: $(top_srcdir)/src/modules/kvs/kvs.h $(MAKE_BINDING) _core_build.p
 _kvs_la_SOURCES = _kvs.c
 _kvs_la_CPPFLAGS = -I$(top_srcdir)/src/modules/kvs
 _kvs_la_LIBADD = $(top_builddir)/src/modules/kvs/libkvs.la $(top_builddir)/src/common/libflux-core.la $(JSON_LDFLAGS) 
+_kvs_la_DEPENDENCIES = _kvs_build.py
 
 fluxpy_PYTHON = core.py __init__.py mrpc.py kvs.py wrapper.py json_c.py rpc.py message.py constants.py
 
