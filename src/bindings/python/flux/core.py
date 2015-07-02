@@ -87,7 +87,9 @@ class MessageWatcher(Watcher):
     raw.flux_msg_watcher_stop(self.fh.handle, self.handle)
 
   def destroy(self):
-    raw.flux_msg_watcher_destroy(self.handle)
+    if self.handle is not None:
+      raw.flux_msg_watcher_destroy(self.handle)
+      self.handle = None
 
 @ffi.callback('flux_timer_watcher_f')
 def TimeoutHandlerWrapper(handle_trash, timer_watcher_s, revents, opaque_handle):
@@ -118,7 +120,9 @@ class TimerWatcher(Watcher):
     raw.flux_timer_watcher_stop(self.fh.handle, self.handle)
 
   def destroy(self):
-    raw.flux_timer_watcher_destroy(self.handle)
+    if self.handle is not None:
+      raw.flux_timer_watcher_destroy(self.handle)
+      self.handle = None
 
 
 class Flux(Wrapper):
