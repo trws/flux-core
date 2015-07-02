@@ -2,7 +2,6 @@ import unittest
 import errno
 import flux.core as core
 import flux.json_c
-import tap
 
 json_str = '{"a":42}';
 class TestRequestMethods(unittest.TestCase):

@@ -118,8 +118,21 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
 
 
 
+@ffi.callback('KVSSetf')
+def KVSWatchWrapper(key, value, arg, errnum):
+  j = Jobj(handle = value)
+  (cb, real_arg) = ffi.from_handle(arg)
+  return cb(key, json.loads(j.as_str()), real_arg, errnum)
 
+kvswatches = {}
+def watch(flux_handle, key, fun, arg):
+  warg = (fun, arg)
+  kvswatches[key] = warg
+  return raw.watch(flux_handle, key, KVSWatchWrapper, ffi.new_handle(warg))
 
+def unwatch(flux_handle, key):
+  kvswatches.pop(key, None)
+  return raw.unwatch(flux_handle, key)
 
 
 

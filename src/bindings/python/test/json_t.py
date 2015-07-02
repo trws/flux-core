@@ -1,7 +1,6 @@
 import unittest
 import errno
 from flux.json_c import Jobj
-import tap
 
 json_str = '{ "a": 42 }'
 
