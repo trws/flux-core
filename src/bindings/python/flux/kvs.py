@@ -118,7 +118,7 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
 
 
 
-@ffi.callback('KVSSetf')
+@ffi.callback('KVSSetF')
 def KVSWatchWrapper(key, value, arg, errnum):
   j = Jobj(handle = value)
   (cb, real_arg) = ffi.from_handle(arg)

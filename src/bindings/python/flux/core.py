@@ -23,26 +23,110 @@ class Core(Wrapper):
           'FLUX_',
           ])
 
-@ffi.callback('FluxMsgHandler')
-def MsgHandlerWrapper(handle_trash, type_mask_cb, msg_handle, opaque_handle):
-  (cb, handle, args) = ffi.from_handle(opaque_handle)
-  ret = cb(handle, type_mask_cb, Message(handle=msg_handle[0], destruct=True), args)
-  return ret if ret is not None else 0
-
-@ffi.callback('FluxTmoutHandler')
-def TimeoutHandlerWrapper(handle_trash, opaque_handle):
-  (cb, handle, args) = ffi.from_handle(opaque_handle)
-  ret = cb(handle, args)
-  return ret if ret is not None else 0
-
 raw = Core()
+
+@ffi.callback('flux_msg_watcher_f')
+def MsgHandlerWrapper(handle_trash, m_watcher_t, msg_handle, opaque_handle):
+  watcher = ffi.from_handle(opaque_handle)
+  ret = watcher.cb(watcher.fh, watcher, Message(handle=msg_handle, destruct=True), watcher.args)
+
+class Watcher(object):
+  def __init__(self):
+    pass
+
+  def start(self):
+    self.istart(self.fh.handle, self.handle)
+    pass
+
+    raw.flux_msg_watcher_start(self.fh.handle, self.handle)
+    pass
+
+    raw.flux_msg_watcher_start(self.fh.handle, self.handle)
+    pass
+
+  def __enter__(self):
+    """Allow this to be used as a context manager"""
+    self.start()
+    return self
+
+  def __exit__(self, type_arg, value, tb):
+    """Allow this to be used as a context manager"""
+    self.stop()
+    return False
+
+  def __del__(self):
+    if self.handle is not None:
+      self.destroy()
+
+class MessageWatcher(Watcher):
+  def __init__(self,
+      flux_handle,
+      type_mask,
+      callback,
+      topic_glob='*',
+      match_tag=flux.FLUX_MATCHTAG_NONE,
+      bsize=0,
+      args=None):
+    self.handle = None
+    self.fh = flux_handle
+    self.cb = callback
+    self.args = args
+    wargs = ffi.new_handle(self)
+    match = ffi.new('struct flux_match', {
+      'typemask' : type_mask,
+      'matchtag' : match_tag,
+      'bsize' : bsize,
+      'topic_glob' : topic_glob,
+      })
+    self.handle = raw.flux_msg_watcher_create(match, MsgHandlerWrapper, wargs)
+
+  def start(self):
+    raw.flux_msg_watcher_start(self.fh.handle, self.handle)
+
+  def stop(self):
+    raw.flux_msg_watcher_stop(self.fh.handle, self.handle)
+
+  def destroy(self):
+    raw.flux_msg_watcher_destroy(self.handle)
+
+@ffi.callback('flux_timer_watcher_f')
+def TimeoutHandlerWrapper(handle_trash, timer_watcher_s, revents, opaque_handle):
+  watcher = ffi.from_handle(opaque_handle)
+  ret = watcher.cb(watcher.fh, watcher, revents, watcher.args)
+
+class TimerWatcher(Watcher):
+  def __init__(self,
+      flux_handle,
+      after,
+      callback,
+      repeat=0,
+      args=None,
+      ):
+    self.fh = flux_handle
+    self.after = after
+    self.repeat = repeat
+    self.cb = callback
+    self.args = args
+    self.handle = None
+    wargs = ffi.new_handle(self)
+    self.handle = raw.flux_timer_watcher_create(float(after), float(repeat), TimeoutHandlerWrapper, wargs)
+
+  def start(self):
+    raw.flux_timer_watcher_start(self.fh.handle, self.handle)
+
+  def stop(self):
+    raw.flux_timer_watcher_stop(self.fh.handle, self.handle)
+
+  def destroy(self):
+    raw.flux_timer_watcher_destroy(self.handle)
+
+
 class Flux(Wrapper):
   def __init__(self, handle=None):
-    self.msghandlers = {}
-    self.timeouts = {}
+    self.external = False
+    self.handle = None
     if handle is None:
-      self.external = False
-      handle = lib.flux_open(ffi.NULL, 0)
+      handle = raw.flux_open(ffi.NULL, 0)
     else:
       self.external = True
     super(self.__class__, self).__init__(ffi, lib, handle=handle,
@@ -54,8 +138,8 @@ class Flux(Wrapper):
                                      )
 
   def __del__(self):
-    if not self.external:
-      self.close()
+    if not self.external and self.handle is not None:
+      raw.flux_close(self.handle)
 
   def log(self, level, fstring):
     """Log to the flux logging facility"""
@@ -97,29 +181,18 @@ class Flux(Wrapper):
   def event_recv(self, topic=None, payload=None):
     return self.recv(type_mask=lib.FLUX_MSGTYPE_EVENT, topic_glob=topic)
 
-  def msghandler_add(self, callback, type_mask=lib.FLUX_MSGTYPE_ANY, pattern='*', args=None):
-    packed_args = (callback, self, args)
-    # Save the callback arguments to keep them from getting collected
-    self.msghandlers[(type_mask, pattern)] = packed_args
-    arg_handle = ffi.new_handle(packed_args)
-    return self.flux_msghandler_add(type_mask, pattern, MsgHandlerWrapper, arg_handle)
+  def msg_handler_create(self,
+      callback,
+      type_mask=lib.FLUX_MSGTYPE_ANY,
+      pattern='*',
+      args=None,
+      match_tag=flux.FLUX_MATCHTAG_NONE,
+      bsize=0):
+    return MessageWatcher(self, type_mask, callback, pattern, match_tag, bsize, args)
 
-  def msghandler_remove(self, type_mask=lib.FLUX_MSGTYPE_ANY, pattern='*'):
-    self.flux_msghandler_remove(type_mask, pattern)
-    self.msghandlers.pop((type_mask, pattern), None)
+  def timer_handler_create(self, after, callback, repeat=0.0, args=None):
+    return TimerWatcher(self, after, callback, repeat=repeat, args=args)
 
-  def timeout_handler_add(self, milliseconds, callback, oneshot=True, args=None):
-    packed_args = (callback, self, args)
-    arg_handle = ffi.new_handle(packed_args)
-    timeout_id = self.flux_tmouthandler_add(milliseconds, oneshot, TimeoutHandlerWrapper, arg_handle)
-    # Save the callback arguments to keep them from getting collected
-    self.timeouts[timeout_id] = packed_args
-    return timeout_id
-
-  def timeout_handler_remove(self, timer_id):
-    self.flux_tmouthandler_remove(timer_id)
-    # Remove handle to stored arguments
-    self.timeouts.pop(timer_id, None)
 
 
 

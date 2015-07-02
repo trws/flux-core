@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 import unittest
 import errno
+import os
 import sys
 import flux.core as core
 import flux
 import flux.kvs
+import json
 from pycotap import TAPTestRunner
 from sideflux import run_beside_flux
 
@@ -65,30 +67,31 @@ class TestTimer(unittest.TestCase):
 
   def test_timer_add_negative(self):
     """Add a negative timer"""
-    with self.assertRaises(OverflowError):
-      self.tid = self.f.timeout_handler_add(-500, lambda x,y: x.fatal_error('timer should not run'))
+    with self.assertRaises(EnvironmentError):
+      self.f.timer_handler_create(-500, lambda x,y: x.fatal_error('timer should not run'))
 
   def test_s1_0_timer_add(self):
     """Add a timer"""
-    self.tid = self.f.timeout_handler_add(10000, lambda x,y: x.fatal_error('timer should not run'))
-    self.assertGreaterEqual(self.tid, 0)
+    with self.f.timer_handler_create(10000, lambda x,y,z,w: x.fatal_error('timer should not run')) as tid:
+      self.assertIsNotNone(tid)
 
   def test_s1_1_timer_remove(self):
     """Remove a timer"""
-    self.tid = self.f.timeout_handler_add(10000, lambda x,y: x.fatal_error('timer should not run'))
-    self.f.timeout_handler_remove(self.tid)
+    to = self.f.timer_handler_create(10000, lambda x,y: x.fatal_error('timer should not run'))
+    to.stop()
+    to.destroy()
 
   def test_timer_with_reactor(self):
     """Register a timer and run the reactor to ensure it can stop it"""
     timer_ran = [False]
-    def cb(x, y):
+    def cb(x, y, z, w):
       timer_ran[0] = True
       x.reactor_stop()
-    tid = self.f.timeout_handler_add(100, cb)
-    self.assertGreaterEqual(tid, 0, msg="timeout add")
-    ret = self.f.reactor_start()
-    self.assertEqual(ret, 0, msg="Reactor exit")
-    self.assertTrue(timer_ran[0], msg="Timer did not run successfully")
+    with self.f.timer_handler_create(0.1, cb) as timer:
+      self.assertIsNotNone(timer, msg="timeout create")
+      ret = self.f.reactor_start()
+      self.assertEqual(ret, 0, msg="Reactor exit")
+      self.assertTrue(timer_ran[0], msg="Timer did not run successfully")
 
 
 class TestKVS(unittest.TestCase):
