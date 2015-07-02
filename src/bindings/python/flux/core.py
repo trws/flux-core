@@ -34,16 +34,6 @@ class Watcher(object):
   def __init__(self):
     pass
 
-  def start(self):
-    self.istart(self.fh.handle, self.handle)
-    pass
-
-    raw.flux_msg_watcher_start(self.fh.handle, self.handle)
-    pass
-
-    raw.flux_msg_watcher_start(self.fh.handle, self.handle)
-    pass
-
   def __enter__(self):
     """Allow this to be used as a context manager"""
     self.start()
