@@ -126,11 +126,17 @@ class TimerWatcher(Watcher):
 
 
 class Flux(Wrapper):
-  def __init__(self, handle=None):
+  """
+  The general Flux handle class, create one of these to connect to the
+  nearest enclosing flux instance
+  >>> flux.Flux() #doctest: +ELLIPSIS
+  <flux.core.Flux object at 0x...>
+  """
+  def __init__(self, url=ffi.NULL, handle=None):
     self.external = False
     self.handle = None
     if handle is None:
-      handle = raw.flux_open(ffi.NULL, 0)
+      handle = raw.flux_open(url, 0)
     else:
       self.external = True
     super(self.__class__, self).__init__(ffi, lib, handle=handle,
@@ -146,17 +152,22 @@ class Flux(Wrapper):
       raw.flux_close(self.handle)
 
   def log(self, level, fstring):
-    """Log to the flux logging facility"""
+    """Log to the flux logging facility
+       
+       :param level: A syslog log-level, check the syslog module for possible values
+       :param fstring: A string to log, C-style formatting is *not* supported
+    """
     # Short-circuited because variadics can't be wrapped cleanly
     lib.flux_log(self.handle, level, fstring)
 
   def send(self, message, flags=0):
+    """Send a pre-constructed flux message"""
     if isinstance(message, Message):
       message = message.handle
     return self.flux_send(message, flags)
 
   def recv(self, type_mask=flux.FLUX_MSGTYPE_ANY, match_tag=flux.FLUX_MATCHTAG_NONE, topic_glob=None, bsize=0, flags=0):
-    """ Receive a message, returns a Message containing the result or None"""
+    """ Receive a message, returns a flux.Message containing the result or None"""
     match = ffi.new('struct flux_match *',{
       'typemask' : type_mask,
       'matchtag' : match_tag,
@@ -170,16 +181,24 @@ class Flux(Wrapper):
       return None
 
   def rpc_send(self, topic, payload=ffi.NULL, nodeid=flux.FLUX_NODEID_ANY, flags=0):
+    """ Create and send an RPC in one step """
     r = RPC(self, topic, payload, nodeid, flags)
     return r.get()
 
   def rpc_create(self, topic, payload=None, nodeid=flux.FLUX_NODEID_ANY, flags=0):
+    """ Create a new RPC object """
     return RPC(topic, payload, nodeid, flags)
 
   def event_create(self, topic, payload=None):
+    """ Create a new event message.
+        
+        :param topic: A string, the event's topic
+        :param payload: If a string, the payload is used unmodified, if it is another type json.dumps() is used to stringify it
+    """
     return Message.from_event_encode(topic, payload)
 
   def event_send(self, topic, payload=None):
+    """ Create and send a new event in one step """
     return self.send(self.event_create(topic, payload))
 
   def event_recv(self, topic=None, payload=None):

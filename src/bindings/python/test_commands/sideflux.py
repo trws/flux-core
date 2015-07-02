@@ -30,7 +30,7 @@ def run_beside_flux(size=1):
   global flux_exe
 
   flux_command = [flux_exe, '--verbose', 'start', '--size={}'.format(size), '-o', '--verbose,-L,stderr', """bash -c 'echo READY ; while true ; do sleep 1; done' """]
-  print ' '.join(flux_command)
+  # print ' '.join(flux_command)
   FNULL = open(os.devnull, 'w+')
 
   f = subprocess.Popen(flux_command,
@@ -41,15 +41,15 @@ def run_beside_flux(size=1):
       )
   while True:
     line = f.stdout.readline()
-    print line
+    # print line
     if line != '':
       m = re.match(r"\s+(FLUX_[^=]+)=(.*)", line.rstrip())
       if m:
-        print "setting", m.group(1), "to", os.path.abspath(m.group(2))
+        # print "setting", m.group(1), "to", os.path.abspath(m.group(2))
         os.environ[m.group(1)] = os.path.abspath(m.group(2))
       m = re.match(r'lt-flux-broker: FLUX_TMPDIR: (.*)', line.rstrip())
       if m:
-        print "setting", "FLUX_TMPDIR", "to", os.path.abspath(m.group(1))
+        # print "setting", "FLUX_TMPDIR", "to", os.path.abspath(m.group(1))
         os.environ['FLUX_TMPDIR'] = m.group(1)
       if re.search('READY', line):
         break
