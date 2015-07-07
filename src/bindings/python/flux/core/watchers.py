@@ -1,7 +1,9 @@
 import flux
 from flux.core.inner import raw
 from flux._core import ffi, lib
+import flux.message
 
+__all__ = ['MessageWatcher', 'TimerWatcher']
 
 class Watcher(object):
   def __init__(self):
@@ -24,7 +26,7 @@ class Watcher(object):
 @ffi.callback('flux_msg_watcher_f')
 def MsgHandlerWrapper(handle_trash, m_watcher_t, msg_handle, opaque_handle):
   watcher = ffi.from_handle(opaque_handle)
-  ret = watcher.cb(watcher.fh, watcher, Message(handle=msg_handle, destruct=True), watcher.args)
+  ret = watcher.cb(watcher.fh, watcher, flux.message.Message(handle=msg_handle, destruct=False), watcher.args)
 
 class MessageWatcher(Watcher):
   def __init__(self,

@@ -20,7 +20,8 @@ class Message(WrapperPimpl):
                                          ],
                                        )
     def __del__(self):
-      if not self.external or self.destruct:
+      if ((not self.external or self.destruct) 
+          and self.handle is not None and self.handle != ffi.NULL):
         lib.flux_msg_destroy(self.handle)
 
   def __init__(self, type_id=flux.FLUX_MSGTYPE_REQUEST, handle=None, destruct=False):
