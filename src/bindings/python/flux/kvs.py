@@ -57,8 +57,6 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
   def commit(self):
     global raw
     ret = raw.kvs_commit(self.fh.handle)
-    # Re-read the directory after a commit
-    self.pimpl = self.InnerWrapper(self.fh, self.path, None)
     if ret < 0:
       raise EnvironmentError(ret)
 
@@ -136,6 +134,36 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
     for b in self:
       count += 1
     return count
+
+  def fill(self, contents):
+    """ Populate this directory with keys specified by contents, which must
+    conform to the Mapping interface
+
+    :param contents: A dict of keys and values to be created in the directory
+      or None, sub-directories can be created by using `dir.file` syntax,
+      sub-dicts will be stored as json values in a single key """
+
+    if contents is None:
+      raise ValueError("contents must be non-None")
+
+    with commit_guard(self) as kd:
+      for k, v in contents.items():
+        self[k] = v
+
+
+  def mkdir(self, key, contents=None):
+    """ Create a new sub-directory, optionally pre-populated with the contents
+    of `files` as would be done with `fill(contents)`
+
+    :param key: Key of the directory to be created
+    :param contents: A dict of keys and values to be created in the directory
+      or None, sub-directories can be created by using `dir.file` syntax,
+      sub-dicts will be stored as json values in a single key """
+
+    self.pimpl.mkdir(key)
+    new_kvsdir = KVSDir(self.fh, key)
+    if contents is not None:
+      new_kvsdir.fill(contents)
 
 
 

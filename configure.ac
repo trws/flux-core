@@ -164,6 +164,7 @@ AC_CONFIG_FILES( \
   src/bindings/lua/Makefile \
   src/bindings/python/Makefile \
   src/bindings/python/flux/Makefile \
+  src/bindings/python/flux/core/Makefile \
   src/broker/Makefile \
   src/cmd/Makefile \
   src/connectors/Makefile \

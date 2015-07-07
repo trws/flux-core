@@ -1,5 +1,5 @@
 from flux.wrapper import Wrapper, WrapperPimpl
-from flux.core import ffi, lib
+from flux.core.inner import ffi, lib
 import flux
 import json
 

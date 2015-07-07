@@ -47,7 +47,7 @@ class Wrapper(WrapperBase):
     self.lib = lib
     self.handle = handle
     self.match = match
-    self.filter_match = match
+    self.filter_match = filter_match
     self.prefixes = prefixes
 
     self.NULL = ffi.NULL
