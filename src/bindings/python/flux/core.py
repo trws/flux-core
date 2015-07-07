@@ -25,11 +25,6 @@ class Core(Wrapper):
 
 raw = Core()
 
-@ffi.callback('flux_msg_watcher_f')
-def MsgHandlerWrapper(handle_trash, m_watcher_t, msg_handle, opaque_handle):
-  watcher = ffi.from_handle(opaque_handle)
-  ret = watcher.cb(watcher.fh, watcher, Message(handle=msg_handle, destruct=True), watcher.args)
-
 class Watcher(object):
   def __init__(self):
     pass
@@ -48,6 +43,11 @@ class Watcher(object):
     if self.handle is not None:
       self.destroy()
 
+@ffi.callback('flux_msg_watcher_f')
+def MsgHandlerWrapper(handle_trash, m_watcher_t, msg_handle, opaque_handle):
+  watcher = ffi.from_handle(opaque_handle)
+  ret = watcher.cb(watcher.fh, watcher, Message(handle=msg_handle, destruct=True), watcher.args)
+
 class MessageWatcher(Watcher):
   def __init__(self,
       flux_handle,
@@ -62,13 +62,14 @@ class MessageWatcher(Watcher):
     self.cb = callback
     self.args = args
     wargs = ffi.new_handle(self)
-    match = ffi.new('struct flux_match', {
+    c_topic_glob = ffi.new('char[]', topic_glob)
+    match = ffi.new('struct flux_match *', {
       'typemask' : type_mask,
       'matchtag' : match_tag,
       'bsize' : bsize,
-      'topic_glob' : topic_glob,
+      'topic_glob' : c_topic_glob,
       })
-    self.handle = raw.flux_msg_watcher_create(match, MsgHandlerWrapper, wargs)
+    self.handle = raw.flux_msg_watcher_create(match[0], MsgHandlerWrapper, wargs)
 
   def start(self):
     raw.flux_msg_watcher_start(self.fh.handle, self.handle)
@@ -194,7 +195,7 @@ class Flux(Wrapper):
   def event_recv(self, topic=None, payload=None):
     return self.recv(type_mask=lib.FLUX_MSGTYPE_EVENT, topic_glob=topic)
 
-  def msg_handler_create(self,
+  def msg_watcher_create(self,
       callback,
       type_mask=lib.FLUX_MSGTYPE_ANY,
       pattern='*',
@@ -203,7 +204,7 @@ class Flux(Wrapper):
       bsize=0):
     return MessageWatcher(self, type_mask, callback, pattern, match_tag, bsize, args)
 
-  def timer_handler_create(self, after, callback, repeat=0.0, args=None):
+  def timer_watcher_create(self, after, callback, repeat=0.0, args=None):
     return TimerWatcher(self, after, callback, repeat=repeat, args=args)
 
 
@@ -229,7 +230,11 @@ def mod_main_trampoline(name, int_handle, args):
     flux_instance = Flux(handle = lib.unpack_long(int_handle))
     # print "flux instance retrieved, loading:", name
     #impo__import__('flux.modules.' + name)rt the user's module dynamically
-    user_mod = importlib.import_module('flux.modules.' + name, 'flux.modules')
+    user_mod = None
+    try:
+      user_mod = importlib.import_module('flux.modules.' + name, 'flux.modules')
+    except ImportError: #check user paths for the module
+      user_mod = importlib.import_module(name)
 
     # print "user module loaded:", name
     #call into mod_main with a flux class instance and the argument dict

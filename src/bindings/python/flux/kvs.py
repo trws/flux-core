@@ -24,6 +24,7 @@ class KVSHandle(Wrapper):
 class KVSDir(WrapperPimpl,collections.MutableMapping):
   class InnerWrapper(Wrapper):
     def __init__(self, flux_handle=None, path='.', handle=None):
+      self.handle = None
       global raw
       if flux_handle is None and handle is None:
         raise ValueError("flux_handle must be a valid Flux object or handle must be a valid kvsdir cdata pointer")
@@ -42,44 +43,65 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
                                          'kvsdir_',
                                          ],
                                        )
-    # def __del__(self):
-    #   lib.kvsdir_destroy(self.handle)
+    def __del__(self):
+      if self.handle is not None:
+        raw.kvsdir_destroy(self.handle)
 
   def __init__(self, flux_handle=None, path='.', handle=None):
       self.fh = flux_handle
+      self.path = path
       if flux_handle is None and handle is None:
         raise ValueError("flux_handle must be a valid Flux object or handle must be a valid kvsdir cdata pointer")
       self.pimpl = self.InnerWrapper(flux_handle, path, handle)
 
   def commit(self):
     global raw
-    raw.kvs_commit(self.fh.handle)
+    ret = raw.kvs_commit(self.fh.handle)
+    # Re-read the directory after a commit
+    self.pimpl = self.InnerWrapper(self.fh, self.path, None)
+    if ret < 0:
+      raise EnvironmentError(ret)
+
+  def key_at(self, key):
+    c_str = self.pimpl.key_at(key)
+    p_str = ffi.string(c_str)
+    lib.free(c_str)
+    return p_str
 
   def __getitem__(self, key):
     try:
       j = json_c.Jobj()
-      self.pimpl.get(key, j.get_as_dptr()) 
+      self.pimpl.get(key, j.get_as_dptr())
       return json.loads(j.as_str())
-    except RuntimeError as err:
-      if err.errno != errno.EISDIR:
-        raise err
+    except EnvironmentError as err:
+      if err == errno.EISDIR:
+        pass
+      else:
+        raise KeyError(key)
+
     nd = ffi.new('kvsdir_t [1]')
     self.pimpl.get_dir(nd, key)
-    return KVSDir(handle = nd)
+    return KVSDir(flux_handle=self.fh, handle = nd[0])
+
   
   def __setitem__(self, key, value):
+    ret = -1
     if value is None:
-      self.pimpl.put(key, ffi.NULL)
+      ret = self.pimpl.put(key, ffi.NULL)
     elif isinstance(value, int):
-      self.pimpl.put_int64(key, value)
+      ret = self.pimpl.put_int64(key, value)
     elif isinstance(value, float):
-      self.pimpl.put_double(key, value)
+      ret = self.pimpl.put_double(key, value)
     elif isinstance(value, bool):
-      self.pimpl.put_boolean(key, value)
+      ret = self.pimpl.put_boolean(key, value)
     else:
       # Turn it into json
       j = json_c.Jobj(json.dumps(value))
-      self.pimpl.put(key, j.get())
+      ret = self.pimpl.put(key, j.get())
+      # print "putting:", j.as_str(), ret
+    if ret < 0:
+      raise ValueError()
+
 
   def __delitem__(self, key):
     self.pimpl.unlink(key)
@@ -87,6 +109,7 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
   class KVSDirIterator(Wrapper, collections.Iterator):
     def __init__(self, kd):
       self.kd = kd
+      self.itr = None
       self.itr = raw.kvsitr_create(kd.handle)
 
     def __del__(self):
@@ -99,8 +122,7 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
       ret = raw.kvsitr_next(self.itr)
       if ret is None or ret == ffi.NULL:
         raise StopIteration()
-      ret = ffi.string(ret)
-      return ret
+      return ffi.string(ret)
 
     def next(self):
       return self.__next__()
@@ -144,7 +166,7 @@ def get_dir(flux_handle, path='.'):
   try:
     yield kd
   finally:
-    raw.kvs_commit(flux_handle.handle)
+    kd.commit()
 
 @contextlib.contextmanager
 def commit_guard(obj):

@@ -111,6 +111,8 @@ void * unpack_long(ptrdiff_t num){{
 
 ffi.cdef("""
 void * unpack_long(ptrdiff_t num);
+void free(void *ptr);
+
 struct json_object;
 extern typedef struct json_object json_object;
 struct json_object* json_tokener_parse(const char *str);

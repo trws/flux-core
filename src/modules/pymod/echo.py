@@ -1,8 +1,8 @@
 import os
 import syslog
-from flux.mrpc import MRPC, Jobj
 import flux
 from flux import core
+from flux.mrpc import MRPC, Jobj
 import sys
 
 def pecho_impl(h, typemask, message, arg):
@@ -16,11 +16,10 @@ def pecho_impl(h, typemask, message, arg):
 def mod_main(h, **arg_dict):
     if h.event_subscribe("mrpc.mecho") < 0:
         h.fatal_error("event subscription failed")
-    if h.msghandler_add(pecho_impl,
-        type_mask=flux.FLUX_MSGTYPE_EVENT,
-        pattern="mrpc.mecho") < 0:
-        h.fatal_error("msghandler_add failed")
-    if h.reactor_start() < 0:
-        h.fatal_error( "reactor start failed!")
+    with h.msg_watcher_create(pecho_impl,
+                                  type_mask=flux.FLUX_MSGTYPE_EVENT,
+                                  pattern="mrpc.mecho") as mw:
+        if h.reactor_start() < 0:
+            h.fatal_error( "reactor start failed!")
     h.log(syslog.LOG_INFO, "pecho unloading")
 

@@ -55,7 +55,7 @@ int mod_main (flux_t h, zhash_t *args_in)
     zhash_t *args = zhash_dup(args_in);
     Py_SetProgramName("pymod");
     Py_Initialize();
-    flux_log(h, LOG_ERR, "in pymod mod_main");
+    /* flux_log(h, LOG_INFO, "in pymod mod_main"); */
 
     if(zhash_lookup(args, "--help")){
         print_usage();
@@ -81,7 +81,7 @@ int mod_main (flux_t h, zhash_t *args_in)
         flux_log(h, LOG_ERR, "Module name must be specified with --module");
         return EINVAL;
     }
-    flux_log(h, LOG_ERR, "loading module named: %s\n", module_name);
+    flux_log(h, LOG_INFO, "loading python module named: %s\n", module_name);
 
     PyObject *module = PyImport_ImportModule("flux.core");
     if(!module){

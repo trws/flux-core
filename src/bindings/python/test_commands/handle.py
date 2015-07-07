@@ -68,16 +68,16 @@ class TestTimer(unittest.TestCase):
   def test_timer_add_negative(self):
     """Add a negative timer"""
     with self.assertRaises(EnvironmentError):
-      self.f.timer_handler_create(-500, lambda x,y: x.fatal_error('timer should not run'))
+      self.f.timer_watcher_create(-500, lambda x,y: x.fatal_error('timer should not run'))
 
   def test_s1_0_timer_add(self):
     """Add a timer"""
-    with self.f.timer_handler_create(10000, lambda x,y,z,w: x.fatal_error('timer should not run')) as tid:
+    with self.f.timer_watcher_create(10000, lambda x,y,z,w: x.fatal_error('timer should not run')) as tid:
       self.assertIsNotNone(tid)
 
   def test_s1_1_timer_remove(self):
     """Remove a timer"""
-    to = self.f.timer_handler_create(10000, lambda x,y: x.fatal_error('timer should not run'))
+    to = self.f.timer_watcher_create(10000, lambda x,y: x.fatal_error('timer should not run'))
     to.stop()
     to.destroy()
 
@@ -87,7 +87,7 @@ class TestTimer(unittest.TestCase):
     def cb(x, y, z, w):
       timer_ran[0] = True
       x.reactor_stop()
-    with self.f.timer_handler_create(0.1, cb) as timer:
+    with self.f.timer_watcher_create(0.1, cb) as timer:
       self.assertIsNotNone(timer, msg="timeout create")
       ret = self.f.reactor_start()
       self.assertEqual(ret, 0, msg="Reactor exit")
@@ -109,26 +109,34 @@ class TestKVS(unittest.TestCase):
       self.assertIsNotNone(d)
 
   def set_and_check_context(self, key, value, msg=''):
-    with flux.kvs.get_dir(self.f) as kd:
-      kd[key] = value
+    kd = flux.kvs.KVSDir(self.f)
+    kd[key] = value
+    kd.commit()
     nv = kd[key]
     self.assertEqual(value, nv)
 
+  def test_set_none(self):
+    with self.assertRaises(KeyError):
+      self.set_and_check_context('None', None)
+
   def test_set_int(self):
-    self.set_and_check_context('tkey', 10)
+    self.set_and_check_context('int', 10)
 
   def test_set_float(self):
-    self.set_and_check_context('tkey', 10.5)
+    self.set_and_check_context('float', 10.5)
 
   def test_set_string(self):
-    self.set_and_check_context('tkey', "stuff")
+    self.set_and_check_context('string', "stuff")
 
   def test_set_list(self):
-    self.set_and_check_context('tkey', [1,2,3,4])
+    self.set_and_check_context('list', [1,2,3,4])
 
   def test_set_dict(self):
-    self.set_and_check_context('tkey', {'thing': 'stuff',
+    self.set_and_check_context('dict', {'thing': 'stuff',
       'other thing' : 'more stuff'})
+
+  def test_set_deep(self):
+    self.set_and_check_context('a.b.c.e.f.j.k', 5)
 
   def test_iterator(self):
     keys = [ 'testdir1a.' + str(x) for x in range(1,15)]
