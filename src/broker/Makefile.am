@@ -30,7 +30,6 @@ flux_broker_SOURCES = \
 	shutdown.h \
 	shutdown.c
 
-cmbd_LDFLAGS = -export-dynamic
 
 flux_broker_LDADD = \
 	$(top_builddir)/src/modules/kvs/libkvs.la \
