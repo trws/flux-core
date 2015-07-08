@@ -72,7 +72,7 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
       self.pimpl.get(key, j.get_as_dptr())
       return json.loads(j.as_str())
     except EnvironmentError as err:
-      if err == errno.EISDIR:
+      if err.errno == errno.EISDIR:
         pass
       else:
         raise KeyError(key)
@@ -164,6 +164,33 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
     new_kvsdir = KVSDir(self.fh, key)
     if contents is not None:
       new_kvsdir.fill(contents)
+
+  def list_all(self, topdown=False):
+    files = []
+    dirs = []
+    for k in self.keys():
+      if self.pimpl.isdir(k):
+        dirs.append(k)
+      else:
+        files.append(k)
+    return (files, dirs)
+
+
+def walk(kd, topdown=False):
+  """ Walk a directory in the style of os.walk() """
+  key = kd.key_at('')
+  (files, dirs) = kd.list_all(topdown)
+  if topdown:
+    yield (key, dirs, files)
+
+  for d in dirs:
+    for x in walk(kd[d], topdown):
+      yield x
+
+  if not topdown:
+    yield (key, dirs, files)
+
+
 
 
 
