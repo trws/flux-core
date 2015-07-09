@@ -40,6 +40,7 @@ class Wrapper(WrapperBase):
                match=None,
                filter_match=True,
                prefixes=[],
+               success_code=None,
                ):
     super(Wrapper, self).__init__()
 
@@ -49,6 +50,7 @@ class Wrapper(WrapperBase):
     self.match = match
     self.filter_match = filter_match
     self.prefixes = prefixes
+    self.success_code = success_code
 
     self.NULL = ffi.NULL
 
@@ -83,6 +85,7 @@ class Wrapper(WrapperBase):
     # print fun.__name__, 'handler?', add_handle, t.kind, t.args
     # print alist, 'arg_trans', arg_trans
     holder = fun
+    scode = self.success_code
     def NoneWrapper(self_in, *args_in): #keyword args are not supported
       # print holder.__name__, 'got', self_in, args_in
       args = []
@@ -99,7 +102,8 @@ class Wrapper(WrapperBase):
       result = holder(*args)
       # Convert errno errors into python exceptions
       err = self_in.ffi.errno
-      if err != 0:
+      #print holder.__name__, 'got', self_in, args_in, err, result
+      if err != 0 and (scode is None or result != scode):
         raise EnvironmentError(err, os.strerror(err))
       if result == self_in.ffi.NULL:
         return None

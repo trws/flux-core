@@ -42,6 +42,7 @@ class KVSDir(WrapperPimpl,collections.MutableMapping):
                                        prefixes=[
                                          'kvsdir_',
                                          ],
+                                           success_code = 0,
                                        )
     def __del__(self):
       if self.handle is not None:
