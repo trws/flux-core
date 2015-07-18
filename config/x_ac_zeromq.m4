@@ -8,8 +8,8 @@ AC_DEFUN([X_AC_ZEROMQ], [
     ])
 
     CPPFLAGS="$CPPFLAGS -I/usr/include/czmq"
-    X_AC_CHECK_COND_LIB(czmq, zhash_new)
-    AS_VAR_IF([ac_cv_lib_czmq_zhash_new],[yes],,[
+    X_AC_CHECK_COND_LIB(czmq, zhash_next)
+    AS_VAR_IF([ac_cv_lib_czmq_zhash_next],[yes],,[
         AC_MSG_ERROR([no suitable czmq library found])
     ])
     ac_save_LIBS="$LIBS"
