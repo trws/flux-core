@@ -47,6 +47,7 @@
 
 #include "src/common/libutil/log.h"
 #include "src/common/libutil/xzmalloc.h"
+#include "src/common/libutil/cleanup.h"
 #include "src/common/libutil/nodeset.h"
 #include "src/common/libutil/jsonutil.h"
 #include "src/common/libutil/ipaddr.h"
@@ -675,6 +676,7 @@ static void update_environment (ctx_t *ctx)
         msg ("FLUX_TMPDIR: %s", tmpdir);
     if (flux_set_tmpdir (tmpdir) < 0)
         err_exit ("flux_set_tmpdir");
+    add_cleaner(clean_directory, tmpdir);
 }
 
 static void update_pidfile (ctx_t *ctx, bool force)
@@ -705,6 +707,7 @@ static void update_pidfile (ctx_t *ctx, bool force)
         err_exit ("%s", pidfile);
     if (ctx->verbose)
         msg ("pidfile: %s", pidfile);
+    add_cleaner(clean_file, pidfile);
     free (pidfile);
 }
 
