@@ -1,6 +1,6 @@
 AC_DEFUN([X_AC_ZEROMQ], [
 
-    PKG_CHECK_MODULES([ZMQ], [libczmq >= 3.0.1 libzmq >= 4.0.4])
+    PKG_CHECK_MODULES([ZMQ], [libczmq >= 3.0.0 libzmq >= 4.0.4])
 
     ac_save_LIBS="$LIBS"
     LIBS="$LIBS $ZMQ_LIBS"
