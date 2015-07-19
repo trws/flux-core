@@ -45,7 +45,8 @@ libutil_la_SOURCES = \
 	base64.h \
 	msglist.c \
 	msglist.h \
-	cleanup.c 
+	cleanup.c \
+	cleanup.h
 
 EXTRA_DIST = veb_mach.c
 
