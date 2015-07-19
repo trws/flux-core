@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+""" Attach to a local flux instance.
+"""
+
+from __future__ import print_function
+import sys, os, re, flux.command_helpers, argparse, errno, subprocess
+
+parser = argparse.ArgumentParser(description='Attach to a local flux instance')
+parser.add_argument('--shell',
+                    action='store_true',
+                    help='Execute a command string under a subshell', )
+parser.add_argument(
+    '--instance_id', '-i',
+    help=
+    'The sid of the instance to connect to, if neither sid nor uri specified attach to first found',
+    default='')
+parser.add_argument(
+    '--uri', '-u',
+    help=
+    'The uri of the instance to connect to, if neither sid nor uri specified attach to first found',
+    default='')
+parser.add_argument(
+    'command',
+    nargs='*',
+    help='Command to run, defaults to $SHELL')
+
+
+def run_under(uri, command_list, shell=False):
+    try:
+        with flux.open(uri):
+            pass
+    except EnvironmentError as err:
+        print(uri + ' is not a valid flux URI', file=sys.stderr)
+        print(err, file=sys.stderr)
+        sys.exit(err.errno)
+
+    os.environ['FLUX_URI'] = uri
+    command = os.environ['SHELL']
+    if command_list:
+        command = command_list
+    if shell:
+        command = ' '.join(command_list)
+    use_shell = True if shell else False
+
+    try:
+        sys.exit(subprocess.call(command, shell=use_shell))
+    except OSError as err:
+        print('Failed to run Command `{}`'.format(' '.join(command)),
+              file=sys.stderr)
+        print(err, file=sys.stderr)
+        sys.exit(err.errno)
+
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+
+    if args.uri:
+        run_under(args.uri, args.command, args.shell)
+
+    sid = None
+    if args.instance_id:
+        sid = args.instance_id
+
+    try:
+        sid, uri = flux.command_helpers.list_instances(False, False,
+                                                       sid).next()
+        run_under(uri, args.command, args.shell)
+    except StopIteration:
+        if sid is not None:
+            print('Instance {} not found'.format(sid), file=sys.stderr)
+        else:
+            print('No instance found to attach to, have you run flux start?',
+                  file=sys.stderr)
+        sys.exit(errno.ENOENT)

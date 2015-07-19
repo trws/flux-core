@@ -486,7 +486,7 @@ static int listener_init (ctx_t *ctx, char *sockpath)
         goto error_close;
     }
 done:
-    add_cleaner(clean_file, sockpath);
+    cleanup_push_string(cleanup_file, sockpath);
     return fd;
 error_close:
     close (fd);

@@ -44,10 +44,23 @@ class Flux(Wrapper):
                 'flux_',
                 'FLUX_',
             ], )
-
-    def __del__(self):
+    def close(self):
         if not self.external and self.handle is not None:
             raw.flux_close(self.handle)
+            self.handle = None
+
+    def __del__(self):
+        self.close()
+
+    def __enter__(self):
+        """Allow this to be used as a context manager"""
+        return self
+
+    def __exit__(self, type_arg, value, tb):
+        """Allow this to be used as a context manager"""
+        self.close()
+        return False
+
 
     def log(self, level, fstring):
         """Log to the flux logging facility

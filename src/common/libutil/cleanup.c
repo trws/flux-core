@@ -20,56 +20,79 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  *  See also:  http://www.gnu.org/licenses/
-\*****************************************************************************/
+ \*****************************************************************************/
 
 #include "cleanup.h"
 #include "xzmalloc.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <czmq.h>
 
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 struct cleaner {
-    cleaner_fun_t * fun;
-    char * path;
+    cleaner_fun_f * fun;
+    void * arg;
 };
 
-void clean_directory (const struct cleaner *c)
+void cleanup_directory (const struct cleaner *c)
 {
-    if(c && c->path)
-        rmdir(c->path);
+    if(c && c->arg)
+        rmdir(c->arg);
 }
 
-void clean_file (const struct cleaner *c)
+void cleanup_file (const struct cleaner *c)
 {
-    if(c && c->path)
-        unlink(c->path);
+    if(c && c->arg)
+        unlink(c->arg);
 }
 
+static pid_t cleaner_pid = 0;
 static zlist_t *cleanup_list = NULL;
 static void cleanup (void)
 {
-    if ( ! cleanup_list ) return;
+    pthread_mutex_lock(&mutex);
+    if ( ! cleanup_list || cleaner_pid != getpid()) return;
     const struct cleaner * c = zlist_first(cleanup_list);
     while(c){
+        /* fprintf(stderr, "cleaning up %s in %d\n", (char*)c->arg, getpid()); */
         if (c && c->fun){
             c->fun(c);
         }
         c = zlist_next(cleanup_list);
     }
+    zlist_destroy(&cleanup_list);
+    cleanup_list = NULL;
+    pthread_mutex_unlock(&mutex);
 }
 
-void add_cleaner (cleaner_fun_t *fun, const char * path)
+void cleanup_push (cleaner_fun_f *fun, void * arg)
 {
-    if (! cleanup_list)
+    pthread_mutex_lock(&mutex);
+    /* fprintf(stderr, "prepending cleanup for %s in %d\n", (char*)arg, getpid()); */
+    if (! cleanup_list || cleaner_pid != getpid())
     {
+        // This odd dance is to handle forked processes that do not exec
+        if (cleaner_pid != 0 && cleanup_list) {
+            zlist_destroy(&cleanup_list);
+        }
         cleanup_list = zlist_new();
+        cleaner_pid = getpid();
         atexit(cleanup);
     }
     struct cleaner * c = calloc(sizeof(struct cleaner), 1);
     c->fun = fun;
-    c->path = xstrdup(path);
+    c->arg = arg;
     zlist_push(cleanup_list, c);
+    pthread_mutex_unlock(&mutex);
+}
+
+void cleanup_push_string (cleaner_fun_f *fun, const char * path)
+{
+    cleanup_push(fun, xstrdup(path));
 }
