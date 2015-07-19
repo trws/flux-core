@@ -7,11 +7,6 @@ TESTS = \
 	test_commands/test_runner.t
 
 TEST_EXTENSIONS = .t
-T_LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) \
-	$(top_srcdir)/config/tap-driver.sh
-LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) \
-	$(top_srcdir)/config/tap-driver.sh
-
 TESTS_ENVIRONMENT = \
 	PYTHONPATH=$(top_builddir)/src/bindings/python:$(top_srcdir)/src/bindings/python/pycotap:$(top_srcdir)/src/bindings/python/:$$PYTHONPATH \
 	CHECK_BUILDDIR=$(top_builddir) \
