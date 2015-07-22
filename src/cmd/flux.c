@@ -43,16 +43,25 @@
 
 
 bool handle_internal (flux_conf_t cf, int ac, char *av[]);
-void dump_environment (void);
+void dump_environment (zhash_t *environment);
 void exec_subcommand (const char *searchpath, bool vopt, char *argv[]);
 char *intree_confdir (void);
 
-void setup_lua_env (flux_conf_t cf, const char *cpath_add, const char *path_add);
-char *setup_exec_searchpath (flux_conf_t cf, const char *path_add);
-void setup_module_env (flux_conf_t cf, const char *path_add);
-void setup_python_env (flux_conf_t cf, const char *path_add);
-void setup_connector_env (flux_conf_t cf, const char *path_add);
-void setup_broker_env (flux_conf_t cf, const char *path_override);
+static void environment_apply(zhash_t *environment);
+static void environment_push (zhash_t *environment, const char *key,
+                              const char *value, const char *separator);
+static void environment_push_back (zhash_t *environment, const char *key,
+                                   const char *value, const char *separator);
+static void environment_set (zhash_t *environment, const char *key,
+                             const char *value);
+static void apply_environment(zhash_t *environment);
+
+void setup_lua_env (zhash_t *environment, flux_conf_t cf, const char *cpath_add, const char *path_add);
+char *setup_exec_searchpath (zhash_t *environment, flux_conf_t cf, const char *path_add);
+void setup_module_env (zhash_t *environment, flux_conf_t cf, const char *path_add);
+void setup_python_env (zhash_t *environment, flux_conf_t cf, const char *path_add);
+void setup_connector_env (zhash_t *environment, flux_conf_t cf, const char *path_add);
+void setup_broker_env (zhash_t *environment, flux_conf_t cf, const char *path_override);
 
 #define OPTIONS "+T:tx:hM:O:B:vc:L:P:C:FS:u:"
 static const struct option longopts[] = {
@@ -194,17 +203,19 @@ int main (int argc, char *argv[])
     argv += optind;
 
     cf = flux_conf_create ();
+    zhash_t *environment = zhash_new();
+    zhash_autofree(environment);
+
     /* Set the config directory and pass it to sub-commands.
     */
     if (confdir || (confdir = intree_confdir ()))
         flux_conf_set_directory (cf, confdir);
-    if (setenv ("FLUX_CONF_DIRECTORY", flux_conf_get_directory (cf), 1) < 0)
-        err_exit ("setenv");
-    if (setenv ("FLUX_SEC_DIRECTORY",
-                secdir ? secdir : flux_conf_get_directory (cf), 1) < 0)
-        err_exit ("setenv");
-    if (unsetenv ("FLUX_CONF_USEFILE") < 0)
-        err_exit ("setenv");
+    environment_set(environment,"FLUX_CONF_DIRECTORY",
+                    flux_conf_get_directory (cf));
+    environment_set (environment, "FLUX_SEC_DIRECTORY",
+                     secdir ? secdir : flux_conf_get_directory (cf));
+    environment_set (environment, "FLUX_CONF_USEFILE", "0");
+
     /* Process config from the KVS if running in a session and not
      * forced to use a config file by the command line.
      * It is not an error if config is not foud in either place, we will
@@ -213,7 +224,7 @@ int main (int argc, char *argv[])
     if (getenv ("FLUX_TMPDIR") && !Fopt) {
         flux_t h;
         if (flux_conf_load (cf) == 0)
-            setup_connector_env (cf, Oopt); /* flux_open() needs this */
+            setup_connector_env (environment, cf, Oopt); /* flux_open() needs this */
         if (!(h = flux_open (NULL, 0)))     /*   esp. for in-tree */
             err_exit ("flux_open");
         if (kvs_conf_load (h, cf) < 0 && errno != ENOENT)
@@ -221,8 +232,7 @@ int main (int argc, char *argv[])
         flux_close (h);
     } else {
         if (flux_conf_load (cf) == 0) {
-            if (setenv ("FLUX_CONF_USEFILE", "1", 1) < 0)
-                err_exit ("setenv");
+            environment_set (environment,"FLUX_CONF_USEFILE", "1");
         } else if (errno != ENOENT || Fopt)
             err_exit ("%s", flux_conf_get_directory (cf));
     }
@@ -230,20 +240,21 @@ int main (int argc, char *argv[])
     /* We share a few environment variables with sub-commands, so
      * that they don't have to reprocess the config.
      */
-    setup_lua_env (cf, Copt, Lopt); /* sets LUA_CPATH, LUA_PATH */
-    setup_module_env (cf, Mopt);    /* sets FLUX_MODULE_PATH */
-    setup_python_env (cf, Popt);    /* sets PYTHONPATH */
-    setup_connector_env (cf, Oopt); /* sets FLUX_CONNECTOR_PATH */
-    setup_broker_env (cf, Bopt);    /* sets FLUX_BROKER_PATH */
+    setup_lua_env (environment, cf, Copt, Lopt); /* sets LUA_CPATH, LUA_PATH */
+    setup_module_env (environment, cf, Mopt);    /* sets FLUX_MODULE_PATH */
+    setup_python_env (environment, cf, Popt);    /* sets PYTHONPATH */
+    setup_connector_env (environment, cf, Oopt); /* sets FLUX_CONNECTOR_PATH */
+    setup_broker_env (environment, cf, Bopt);    /* sets FLUX_BROKER_PATH */
 
-    searchpath = setup_exec_searchpath (cf, xopt);
+    searchpath = setup_exec_searchpath (environment, cf, xopt);
 
     if (argc == 0) {
         usage ();
         exit (1);
     }
+    environment_apply(environment);
     if (vopt)
-        dump_environment ();
+        dump_environment (environment);
     if (!handle_internal (cf, argc, argv)) {
         if (vopt)
             printf ("sub-command search path: %s\n", searchpath);
@@ -289,100 +300,112 @@ char *intree_confdir (void)
     return confdir;
 }
 
-static void path_push (char **path, const char *add, const char *sep)
+static void environment_push (zhash_t *environment, const char *key,
+                              const char *value, const char *separator)
 {
-    char *new;
-    if (add == NULL || strlen(add) == 0) /* do nothing */
+    if (!value || strlen(value) == 0)
         return;
-    new = xasprintf ("%s%s%s", add, *path ? sep : "",
-            *path ? *path : "");
-    free (*path);
-    *path = new;
+
+    const char * item = zhash_lookup(environment, key);
+    if (!item) item = "";
+
+    char * new_item = xasprintf("%s%s%s", item, separator, value);
+
+    zhash_update(environment, key, (void*)new_item);
+    free(new_item);
 }
 
-void setup_path(flux_conf_t cf,
-        char ** base_path,
-        const char * build_default,
-        const char * config_name,
-        const char * path_add,
-        const char * sep
-        )
+static void environment_push_back (zhash_t *environment, const char *key,
+                                   const char *value, const char *separator)
 {
-    const char *cf_path = flux_conf_get (cf, config_name);
+    if (!value || strlen(value) == 0)
+        return;
 
-    path_push (base_path, build_default, sep);
-    path_push (base_path, cf_path, sep);
-    path_push (base_path, path_add, sep);
+    char * item = zhash_lookup(environment, key);
+    if (!item) item = "";
+
+    char *new_item = xasprintf("%s%s%s", value, separator, item);
+
+    zhash_update(environment, key, (void*)new_item);
+    free(new_item);
+}
+static void environment_set (zhash_t *environment, const char *key,
+                             const char *value)
+{
+    zhash_update(environment, key, (void *)value);
 }
 
-void setup_lua_env (flux_conf_t cf, const char *cpath_add, const char *path_add)
+static void environment_from_env(zhash_t *environment, const char *key)
+{
+    char * env = getenv(key);
+    if (env)
+        zhash_update(environment, key, env);
+}
+
+static void environment_apply(zhash_t *environment)
+{
+    char *key, * value;
+    for (value = (char*)zhash_first(environment), key = (char*)zhash_cursor(environment);
+            value != NULL;
+            value = zhash_next(environment), key = zhash_cursor(environment)) {
+        if (setenv (key, value, 1) < 0)
+            err_exit ("setenv: %s=%s", key, value);
+    }
+}
+
+void setup_path(zhash_t *environment,
+                flux_conf_t cf,
+                const char *key,
+                const char *build_default,
+                const char *config_name,
+                const char *path_add,
+                const char *sep
+               )
+{
+    environment_push (environment, key, build_default, sep);
+    environment_push (environment, key, flux_conf_get (cf, config_name), sep);
+    environment_push (environment, key, path_add, sep);
+}
+
+void setup_lua_env (zhash_t *environment, flux_conf_t cf, const char *cpath_add, const char *path_add)
 {
     char *path = NULL, *cpath = NULL;
 
-    path_push (&path, getenv ("LUA_PATH"), ";");
-    path_push (&cpath, getenv ("LUA_CPATH"), ";");
+    environment_from_env(environment, "LUA_PATH");
+    environment_from_env(environment, "LUA_CPATH");
 
-    if (path == NULL)
-        path_push (&path, ";;", ";"); /* Lua replaces ;; with the default path */
-    if (cpath == NULL)
-        path_push (&cpath, ";;", ";");
+    if (! zhash_lookup(environment, "LUA_PATH"))
+        environment_push (environment, "LUA_PATH", ";;", ";"); /* Lua replaces ;; with the default path */
+    if (! zhash_lookup(environment, "LUA_CPATH"))
+        environment_push (environment, "LUA_CPATH", ";;", ";"); /* Lua replaces ;; with the default path */
 
-    setup_path(cf, &path, LUA_PATH_ADD, "general.lua_path", path_add, ";");
-    setup_path(cf, &cpath, LUA_CPATH_ADD, "general.lua_cpath", cpath_add, ";");
-
-    if (setenv ("LUA_CPATH", cpath, 1) < 0)
-        err_exit ("%s", cpath);
-    if (setenv ("LUA_PATH", path, 1) < 0)
-        err_exit ("%s", path);
-
-    free (path);
-    free (cpath);
+    setup_path(environment, cf, "LUA_PATH", LUA_PATH_ADD, "general.lua_path", path_add, ";");
+    setup_path(environment, cf, "LUA_CPATH", LUA_CPATH_ADD, "general.lua_cpath", cpath_add, ";");
 }
 
-char *setup_exec_searchpath (flux_conf_t cf, const char *path_add)
+char *setup_exec_searchpath (zhash_t *environment, flux_conf_t cf, const char *path_add)
 {
-    char * path = NULL;
     setup_path(cf, &path, EXEC_PATH, "general.exec_path", path_add, ":");
     return path;
 }
 
-void setup_module_env (flux_conf_t cf, const char *path_add)
+void setup_module_env (zhash_t *environment, flux_conf_t cf, const char *path_add)
 {
-    char *path = NULL;
-    setup_path(cf, &path, MODULE_PATH, "general.module_path", path_add, ":");
-
-    if (setenv ("FLUX_MODULE_PATH", path, 1) < 0)
-        err_exit ("%s", path);
-
-    free (path);
+    setup_path(environment, cf, "FLUX_MODULE_PATH", MODULE_PATH, "general.module_path", path_add, ":");
 }
 
-void setup_python_env (flux_conf_t cf, const char *path_add)
+void setup_python_env (zhash_t *environment, flux_conf_t cf, const char *path_add)
 {
-    char *path = NULL;
-
-    path_push (&path, getenv ("PYTHONPATH"), ":");
-
-    setup_path(cf, &path, PYTHON_PATH, "general.python_path", path_add, ":");
-
-    if (setenv ("PYTHONPATH", path, 1) < 0)
-        err_exit ("%s", path);
-
-    free (path);
+    environment_from_env(environment, "PYTHONPATH");
+    setup_path(environment, cf, "PYTHONPATH", PYTHON_PATH, "general.python_path", path_add, ":");
 }
 
-void setup_connector_env (flux_conf_t cf, const char *path_add)
+void setup_connector_env (zhash_t *environment, flux_conf_t cf, const char *path_add)
 {
-    char *path = NULL;
-    setup_path(cf, &path, CONNECTOR_PATH, "general.connector_path", path_add, ":");
-
-    if (setenv ("FLUX_CONNECTOR_PATH", path, 1) < 0)
-        err_exit ("%s", path);
-
-    free (path);
+    setup_path(environment, cf, "FLUX_CONNECTOR_PATH", CONNECTOR_PATH, "general.connector_path", path_add, ":");
 }
 
-void setup_broker_env (flux_conf_t cf, const char *path_override)
+void setup_broker_env (zhash_t *environment, flux_conf_t cf, const char *path_override)
 {
     const char *cf_path = flux_conf_get (cf, "general.broker_path");
     const char *path = path_override;
@@ -391,29 +414,28 @@ void setup_broker_env (flux_conf_t cf, const char *path_override)
         path = cf_path;
     if (!path)
         path = BROKER_PATH;
-    if (setenv ("FLUX_BROKER_PATH", path, 1) < 0)
-        err_exit ("%s", path);
+    environment_set(environment, "FLUX_BROKER_PATH", path);
 }
 
-void dump_environment_one (const char *name)
+void dump_environment_one (zhash_t * environment, const char *name)
 {
-    char *s = getenv (name);
+    char *s = zhash_lookup(environment, name);
     printf ("%20s%s%s\n", name, s ? "=" : "",
             s ? s : " is not set");
 }
 
-void dump_environment (void)
+void dump_environment (zhash_t * environment)
 {
-    dump_environment_one ("FLUX_MODULE_PATH");
-    dump_environment_one ("FLUX_CONNECTOR_PATH");
-    dump_environment_one ("FLUX_BROKER_PATH");
-    dump_environment_one ("FLUX_TMPDIR");
-    dump_environment_one ("FLUX_CONF_DIRECTORY");
-    dump_environment_one ("FLUX_CONF_USEFILE");
-    dump_environment_one ("FLUX_SEC_DIRECTORY");
-    dump_environment_one ("FLUX_HANDLE_TRACE");
-    dump_environment_one ("LUA_PATH");
-    dump_environment_one ("LUA_CPATH");
+    dump_environment_one (environment, "FLUX_MODULE_PATH");
+    dump_environment_one (environment, "FLUX_CONNECTOR_PATH");
+    dump_environment_one (environment, "FLUX_BROKER_PATH");
+    dump_environment_one (environment, "FLUX_TMPDIR");
+    dump_environment_one (environment, "FLUX_CONF_DIRECTORY");
+    dump_environment_one (environment, "FLUX_CONF_USEFILE");
+    dump_environment_one (environment, "FLUX_SEC_DIRECTORY");
+    dump_environment_one (environment, "FLUX_HANDLE_TRACE");
+    dump_environment_one (environment, "LUA_PATH");
+    dump_environment_one (environment, "LUA_CPATH");
     fflush(stdout);
 }
 
@@ -466,12 +488,35 @@ void internal_help (flux_conf_t cf, const char *topic)
         usage ();
 }
 
-bool handle_internal (flux_conf_t cf, int ac, char *av[])
+static void print_environment(zhash_t * environment, const char * prefix)
+{
+    char *key, * value;
+    for (value = (char*)zhash_first(environment), key = (char*)zhash_cursor(environment);
+            value != NULL;
+            value = zhash_next(environment), key = zhash_cursor(environment)) {
+        printf("%s%s=%s\n", prefix, key, value);
+    }
+}
+
+void internal_env (flux_conf_t cf, char *av[], zhash_t * environment)
+{
+    const char *cf_path = flux_conf_get (cf, "general.man_path");
+    char *cmd;
+
+    if (av && av[0]) {
+        execvp (av[0], av); /* no return if successful */
+    } else
+        print_environment(environment, "");
+}
+
+bool handle_internal (flux_conf_t cf, int ac, char *av[], zhash_t *environment)
 {
     bool handled = true;
 
     if (!strcmp (av[0], "help")) {
         internal_help (cf, ac > 1 ? av[1] : NULL);
+    } else if (!strcmp (av[0], "env")) {
+        internal_env (cf, av+1, environment);
     } else
         handled = false;
 
