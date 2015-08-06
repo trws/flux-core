@@ -50,6 +50,8 @@ libutil_la_SOURCES = \
 	sdsalloc.h \
 	vec.c \
 	vec.h \
+	unique_string_array.c \
+	unique_string_array.h \
 	iterators.h
 
 EXTRA_DIST = veb_mach.c

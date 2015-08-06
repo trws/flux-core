@@ -37,17 +37,11 @@
 #include "src/common/libutil/iterators.h"
 #include "src/common/libutil/sds.h"
 #include "src/common/libutil/vec.h"
+#include "src/common/libutil/unique_string_array.h"
 
 #include "conf.h"
 
 static void initialize_environment(flux_conf_t cf); 
-
-struct env_item {
-    sds sep;
-    vec_str_t components;
-    sds string_cache;
-    bool clean;
-};
 
 struct flux_conf_struct {
     char *confdir;
@@ -286,94 +280,23 @@ const char *flux_conf_next (flux_conf_itr_t itr)
     return item;
 }
 
-static const char * flux_conf_environment_get_inner (struct env_item *item)
-{
-    if (! item)
-        return NULL;
-
-    if (item->components.length == 1) 
-        return item->components.data[0];
-
-    if (! item->clean) {
-        sdsfree(item->string_cache);
-        item->string_cache = sdsjoinsds(item->components.data, item->components.length, item->sep, sdslen(item->sep));
-    }
-
-    return item->string_cache;
-}
-
 const char * flux_conf_environment_get (flux_conf_t cf, const char *key)
 {
-    struct env_item *item = zhash_lookup(cf->environment, key);
-    return flux_conf_environment_get_inner(item);
-}
-
-static void split_and_push(struct env_item * item, const char *value, bool before)
-{
-    int value_count=0, i, j;
-    bool insert_on_blank = true;
-
-    if (!value || strlen(value) == 0)
-        return;
-
-    sds * new_parts = sdssplitlen(value, strlen(value), item->sep, strlen(item->sep), &value_count);
-
-    for (i=0; i<value_count; i++){
-        const char *old_path_part;
-        bool skip = false;
-        vec_foreach(&item->components, old_path_part, j){
-            if ( !strcmp(new_parts[i], old_path_part) ) {
-                skip = true;
-                break;
-            }
-        }
-        if (!skip) {
-            if (!sdslen(new_parts[i]) && insert_on_blank) {
-                // This odd dance is for lua's default path item
-                new_parts[i] = sdscpy(new_parts[i], item->sep);
-                insert_on_blank=false;
-            }
-            if (before)
-                vec_insert(&item->components, 0, new_parts[i]);
-            else
-                vec_push(&item->components, new_parts[i]);
-            item->clean = false;
-            new_parts[i] = NULL; // Prevent this sds from being freed by sdsfreesplitres
-        }
-    }
-
-    sdsfreesplitres(new_parts, value_count);
-}
-
-static struct env_item* env_item_new(const char *separator)
-{
-    struct env_item * item = xzmalloc(sizeof(struct env_item));
-    item->sep = sdsnew(separator);
-    item->string_cache = sdsempty();
-    vec_init(&item->components);
-    return item;
-}
-
-static void env_item_destroy(void *input)
-{
-    struct env_item *item = (struct env_item*) input;
-    vec_deinit(&item->components);
-    sdsfree(item->sep);
-    sdsfree(item->string_cache);
-    free(item);
+    return usa_get_joined(zhash_lookup(cf->environment, key));
 }
 
 static void flux_conf_environment_set_inner (flux_conf_t cf, const char *key,
                              const sds value, const char *separator)
 {
-    struct env_item * item = env_item_new(separator);
+    unique_string_array_t *item = usa_new();
+    usa_set_separator(item, separator);
     item->clean = false;
     if (sdslen(item->sep))
-        split_and_push(item, value, false);
+        usa_split_and_push(item, value, false);
     else
-        vec_push(&item->components, value);
+        usa_push(item, value);
     zhash_update(cf->environment, key, (void *)item);
-    zhash_freefn(cf->environment, key, (zhash_free_fn*)env_item_destroy);
+    zhash_freefn(cf->environment, key, (zhash_free_fn*)usa_destroy);
 }
 
 void flux_conf_environment_set (flux_conf_t cf, const char *key,
@@ -393,11 +316,11 @@ static void flux_conf_environment_push_inner (flux_conf_t cf, const char *key,
     if (!value || strlen(value) == 0)
         return;
 
-    struct env_item * item = zhash_lookup(cf->environment, key);
+    unique_string_array_t * item = zhash_lookup(cf->environment, key);
     if (!item)
-        item = env_item_new("");
+        item = usa_new();
 
-    split_and_push(item, value, before);
+    usa_split_and_push(item, value, before);
 }
 
 void flux_conf_environment_push (flux_conf_t cf, const char *key,
@@ -424,20 +347,17 @@ void flux_conf_environment_from_env(flux_conf_t cf, const char *key, const
 void flux_conf_environment_set_separator(flux_conf_t cf, const char *key,
         const char *separator)
 {
-    struct env_item * item = zhash_lookup(cf->environment, key);
-    if (item) {
-        item->sep = sdscpy(item->sep, separator);
-    }
+    usa_set_separator(zhash_lookup(cf->environment, key), separator);
 }
 
 const char *flux_conf_environment_first (flux_conf_t cf)
 {
-    return flux_conf_environment_get_inner(zhash_first(cf->environment));
+    return usa_get_joined(zhash_first(cf->environment));
 }
 
 const char *flux_conf_environment_next (flux_conf_t cf)
 {
-    return flux_conf_environment_get_inner(zhash_next(cf->environment));
+    return usa_get_joined(zhash_next(cf->environment));
 }
 
 const char *flux_conf_environment_cursor (flux_conf_t cf)
@@ -448,9 +368,9 @@ const char *flux_conf_environment_cursor (flux_conf_t cf)
 void flux_conf_environment_apply(flux_conf_t cf)
 {
     const char *key, *value;
-    struct env_item *item;
+    unique_string_array_t *item;
     FOREACH_ZHASH(cf->environment, key, item) {
-        value = flux_conf_environment_get_inner(item);
+        value = usa_get_joined(item);
         if ( sdslen((sds)value) ){
             if (setenv (key, value, 1) < 0)
                 err_exit ("setenv: %s=%s", key, value);
