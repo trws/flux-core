@@ -22,10 +22,34 @@ AC_DEFINE([_GNU_SOURCE], 1,
           [Define _GNU_SOURCE so that we get all necessary prototypes])
 
 ##
+# Determine compiler requirements
+##
+
+AC_MSG_CHECKING(--enable-sanitizer argument)
+AC_ARG_ENABLE(sanitizer,
+	[--enable-sanitizer[=OPT]   Enable a clang sanitizer. [default=no] [OPTS=no/address/memory/thread/leak]],
+        [],
+	[enable_sanitizer="no"])
+AC_MSG_RESULT($enable_sanitizer)
+
+AS_VAR_SET(SANITIZER, $enable_sanitizer)
+AC_SUBST(SANITIZER)
+AM_CONDITIONAL([HAVE_SANITIZER], [test "x$enable_sanitizer" != xno])
+
+##
 # Checks for programs
 ##
-AC_PROG_CC
-AM_PROG_CC_C_O
+if test "x$enable_sanitizer" != xno ; then
+    CC="clang"
+    CXX="clang++"
+    CPP="clang -E"
+    COMPILER_LIST="clang"
+    CFLAGS="$CFLAGS -fsanitize=$enable_sanitizer"
+    LDFLAGS="$LDFLAGS -Wc,-fsanitize=$enable_sanitizer"
+    echo "USING CLANG"
+fi
+AC_PROG_CC_C99
+
 if test "$GCC" = yes; then
   GCCWARN="-Wall -Werror -Wno-strict-aliasing"
   AC_SUBST([GCCWARN])

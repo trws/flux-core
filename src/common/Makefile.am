@@ -15,7 +15,10 @@ libflux_internal_la_LIBADD = \
 	$(builddir)/libcompat/libcompat.la \
 	$(LIBMUNGE) $(JSON_LIBS) $(ZMQ_LIBS) $(LIBPTHREAD) $(LIBUTIL) \
 	$(LIBDL) -lrt
+if HAVE_SANITIZER
+else
 libflux_internal_la_LDFLAGS = -Wl,--no-undefined
+endif
 
 fluxlib_LTLIBRARIES = libflux-core.la
 libflux_core_la_SOURCES =
