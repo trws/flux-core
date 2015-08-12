@@ -108,4 +108,8 @@ test_expect_success 'cmddriver preserves user path components' "
 	PYTHONPATH=/meh flux env sh -c 'echo \$PYTHONPATH' |
 		awk -F '/meh' 'NF-1 != 1 {print; exit 1}'
 "
+test_expect_success 'cmddriver removes multiple contiguous separators in input' "
+	LUA_PATH='/meh;;;' flux env sh -c 'echo \$LUA_PATH' |
+		grep -v ';;;;'
+"
 test_done
