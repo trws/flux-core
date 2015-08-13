@@ -34,10 +34,11 @@
 
 #include "src/common/libutil/log.h"
 #include "src/common/libutil/xzmalloc.h"
-#include "src/common/libutil/iterators.h"
 #include "src/common/libutil/sds.h"
 #include "src/common/libutil/vec.h"
 #include "src/common/libutil/usa.h"
+
+#include "iterators_internal.h"
 
 #include "conf.h"
 
@@ -292,6 +293,20 @@ const char *flux_conf_environment_get (flux_conf_t cf, const char *key)
     return usa_get_joined (zhash_lookup (cf->environment, key));
 }
 
+static char *fi_environemnt_getitem (flux_iterator_t *it, char *key, bool is_index)
+{
+    return key ? (char*)usa_get_joined (zhash_lookup ((zhash_t*)it->ptr_start, key)) : NULL;
+}
+
+flux_iterator_t flux_conf_environment_get_iterator (flux_conf_t cf)
+{
+    flux_iterator_t it = flux_iterator_from_zhash (cf->environment,
+                                     (flux_iterator_user_compare_f)strcmp,
+                                     false);
+    it.impl.getitem = (flux_iterator_getitem_f)fi_environemnt_getitem;
+    return it;
+}
+
 static void flux_conf_environment_set_inner (flux_conf_t cf,
                                              const char *key,
                                              const sds value,
@@ -389,21 +404,6 @@ void flux_conf_environment_set_separator (flux_conf_t cf,
                                           const char *separator)
 {
     usa_set_separator (zhash_lookup (cf->environment, key), separator);
-}
-
-const char *flux_conf_environment_first (flux_conf_t cf)
-{
-    return usa_get_joined (zhash_first (cf->environment));
-}
-
-const char *flux_conf_environment_next (flux_conf_t cf)
-{
-    return usa_get_joined (zhash_next (cf->environment));
-}
-
-const char *flux_conf_environment_cursor (flux_conf_t cf)
-{
-    return zhash_cursor (cf->environment);
 }
 
 void flux_conf_environment_apply (flux_conf_t cf)

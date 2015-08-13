@@ -372,15 +372,16 @@ void internal_help (flux_conf_t cf, optparse_t p, int ac, char *av[])
         usage ();
 }
 
-static void print_environment(flux_conf_t cf, const char * prefix)
+static void print_environment (flux_conf_t cf, const char *prefix)
 {
-    const char *key, *value;
-    for (value = (char*)flux_conf_environment_first(cf), key = (char*)flux_conf_environment_cursor(cf);
-            value != NULL;
-            value = flux_conf_environment_next(cf), key = flux_conf_environment_cursor(cf)) {
-        printf("%s%s=%s\n", prefix, key, value);
+    char *key, *value;
+    flux_iterator_t it = flux_conf_environment_get_iterator (cf);
+    FLUX_ITER_ITEMS (key, value, &it)
+    {
+        printf ("%s%s=%s\n", prefix, key, value);
     }
-    fflush(stdout);
+    flux_iterator_destroy (&it);
+    fflush (stdout);
 }
 
 void internal_env (flux_conf_t cf, optparse_t p, int ac, char *av[])

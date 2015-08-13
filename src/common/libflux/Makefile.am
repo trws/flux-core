@@ -29,6 +29,7 @@ fluxcoreinclude_HEADERS = \
 	info.h \
 	flog.h \
 	conf.h \
+	iterators.h \
 	tmpdir.h
 
 noinst_LTLIBRARIES = \
@@ -50,6 +51,7 @@ libflux_la_SOURCES = \
 	module.c \
 	reparent.c \
 	conf.c \
+	iterators.c \
 	tagpool.h \
 	tagpool.c \
 	ev_flux.h \
@@ -64,6 +66,7 @@ TESTS = test_conf.t \
 	test_request.t \
 	test_response.t \
 	test_event.t \
+	test_iterators.t \
 	test_tagpool.t
 
 test_ldadd = \
@@ -76,7 +79,7 @@ test_ldadd = \
 
 test_cppflags = \
         -I$(top_srcdir)/src/common/libtap \
-        $(AM_CPPFLAGS) \
+        $(AM_CPPFLAGS) -g \
 	-UMODULE_PATH -DMODULE_PATH=\"$(top_builddir)/src/modules\"
 
 check_PROGRAMS = $(TESTS)
@@ -97,6 +100,9 @@ test_module_t_DEPENDENCIES = $(top_builddir)/src/modules/kvs/kvs.la
 $(test_module_t_DEPENDENCIES):
 	@cd `dirname $@` && $(MAKE)
 
+test_iterators_t_SOURCES = test/iterators.c
+test_iterators_t_CPPFLAGS = $(test_cppflags)
+test_iterators_t_LDADD = $(test_ldadd) $(LIBDL)
 
 test_message_t_SOURCES = test/message.c
 test_message_t_CPPFLAGS = $(test_cppflags)

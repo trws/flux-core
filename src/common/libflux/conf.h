@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
+#include "iterators.h"
+
 /* Config file is formatted as ZPL
  *   http://rfc.zeromq.org/spec:4/ZPL
  * In the API below, keys are actually fully qualfied paths into the ZPL
@@ -43,9 +45,6 @@ flux_conf_itr_t flux_conf_itr_create (flux_conf_t cf);
 void flux_conf_itr_destroy (flux_conf_itr_t itr);
 const char *flux_conf_next (flux_conf_itr_t itr);
 
-const char *flux_conf_environment_first (flux_conf_t cf);
-const char *flux_conf_environment_next (flux_conf_t cf);
-const char *flux_conf_environment_cursor (flux_conf_t cf);
 
 void flux_conf_environment_apply (flux_conf_t cf);
 void flux_conf_environment_upsert_front (flux_conf_t cf,
@@ -73,6 +72,8 @@ void flux_conf_environment_set_separator (flux_conf_t cf,
                                           const char *key,
                                           const char *separator);
 const char *flux_conf_environment_get (flux_conf_t cf, const char *key);
+
+flux_iterator_t flux_conf_environment_get_iterator (flux_conf_t cf);
 
 #endif /* !_FLUX_CORE_FCONFIG_H */
 
