@@ -372,18 +372,6 @@ int main (int argc, char *argv[])
     if (argc != optind)
         usage ();
 
-    /* Create directory that will contain ipc sockets if one was
-     * not provided on the command line with --socket-directory.
-     */ 
-    if (!ctx.socket_dir) {
-        char *tmpdir = getenv ("TMPDIR");
-        char *template = xasprintf ("%s/flux.XXXXXX", tmpdir ? tmpdir : "/tmp");
-
-        if (!(ctx.socket_dir = mkdtemp (template)))
-            err_exit ("mkdtemp %s", template);
-        cleanup_push_string (cleanup_directory, ctx.socket_dir);
-    }
-
     /* Add default modules to user-specified module list
      */
     if (default_modules) {
@@ -513,6 +501,16 @@ int main (int argc, char *argv[])
      * create a subdirectory of socket_dir for the sockets and pidfile
      * specific to this rank of the broker.
      */
+    if (!ctx.socket_dir) {
+        char *tmpdir = getenv ("TMPDIR");
+        char *template = xasprintf ("%s/flux-%s-XXXXXX",
+                                    tmpdir ? tmpdir : "/tmp", ctx.sid);
+
+        if (!(ctx.socket_dir = mkdtemp (template)))
+            err_exit ("mkdtemp %s", template);
+        cleanup_push_string (cleanup_directory, ctx.socket_dir);
+    }
+
     create_rankdir (&ctx);
 
     /* If we're missing the wiring, presume that the session is to be
