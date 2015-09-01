@@ -721,7 +721,7 @@ int mod_main (flux_t h, int argc, char **argv)
         goto done;
     }
     tmpdir += strlen ("local://");
-    snprintf (sockpath, sizeof (sockpath), "%s/flux-local", tmpdir);
+    snprintf (sockpath, sizeof (sockpath), "%s/local", tmpdir);
 
     /* Create listen socket and watcher to handle new connections
      */

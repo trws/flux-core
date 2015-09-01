@@ -201,7 +201,7 @@ flux_t connector_init (const char *path, int flags)
         errno = EINVAL;
         goto error;
     }
-    n = snprintf (sockfile, sizeof (sockfile), "%s/flux-local", path);
+    n = snprintf (sockfile, sizeof (sockfile), "%s/local", path);
     if (n >= sizeof (sockfile)) {
         errno = EINVAL;
         goto error;
