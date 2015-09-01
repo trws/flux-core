@@ -34,6 +34,7 @@
 #include "src/common/libutil/xzmalloc.h"
 #include "src/common/libutil/log.h"
 #include "src/common/libutil/optparse.h"
+#include "src/common/libutil/cleanup.h"
 
 int start_direct (optparse_t p, const char *cmd);
 void start_slurm (optparse_t p, const char *cmd);
@@ -200,6 +201,17 @@ char *args_str (char *argz, size_t argz_len)
     return cpy;
 }
 
+char *create_socket_dir (void)
+{
+    char *tmpdir = getenv ("TMPDIR");
+    char *sockdir = xasprintf ("%s/flux.XXXXXX", tmpdir ? tmpdir : "/tmp");
+
+    if (!mkdtemp (sockdir))
+        err_exit ("mkdtemp %s", sockdir);
+    cleanup_push_string (cleanup_directory, sockdir);
+    return sockdir;
+}
+
 int start_direct (optparse_t p, const char *cmd)
 {
     int size = optparse_get_int (p, "size", default_size);
@@ -211,6 +223,7 @@ int start_direct (optparse_t p, const char *cmd)
     int reaped = 0;
     int rc = 0;
     pid_t start_pid = getpid (); /* use as session id */
+    char *sockdir = create_socket_dir ();
 
     if (!broker_path)
         msg_exit ("FLUX_BROKER_PATH is not set");
@@ -225,6 +238,7 @@ int start_direct (optparse_t p, const char *cmd)
         add_arg (&argz, &argz_len, "--size=%d", size);
         add_arg (&argz, &argz_len, "--rank=%d", rank);
         add_arg (&argz, &argz_len, "--sid=%d", start_pid);
+        add_arg (&argz, &argz_len, "--socket-directory=%s", sockdir);
         if (broker_opts)
             add_args_sep (&argz, &argz_len, broker_opts, ',');
         if (rank == 0 && cmd)
