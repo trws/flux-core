@@ -201,10 +201,11 @@ char *args_str (char *argz, size_t argz_len)
     return cpy;
 }
 
-char *create_socket_dir (void)
+char *create_socket_dir (const char *sid)
 {
     char *tmpdir = getenv ("TMPDIR");
-    char *sockdir = xasprintf ("%s/flux.XXXXXX", tmpdir ? tmpdir : "/tmp");
+    char *sockdir = xasprintf ("%s/flux-%s-XXXXXX",
+                               tmpdir ? tmpdir : "/tmp", sid);
 
     if (!mkdtemp (sockdir))
         err_exit ("mkdtemp %s", sockdir);
@@ -222,8 +223,8 @@ int start_direct (optparse_t p, const char *cmd)
     pid_t *pids;
     int reaped = 0;
     int rc = 0;
-    pid_t start_pid = getpid (); /* use as session id */
-    char *sockdir = create_socket_dir ();
+    char *sid = xasprintf ("%d", getpid ());
+    char *sockdir = create_socket_dir (sid);
 
     if (!broker_path)
         msg_exit ("FLUX_BROKER_PATH is not set");
@@ -237,7 +238,7 @@ int start_direct (optparse_t p, const char *cmd)
         add_arg (&argz, &argz_len, "%s", broker_path);
         add_arg (&argz, &argz_len, "--size=%d", size);
         add_arg (&argz, &argz_len, "--rank=%d", rank);
-        add_arg (&argz, &argz_len, "--sid=%d", start_pid);
+        add_arg (&argz, &argz_len, "--sid=%s", sid);
         add_arg (&argz, &argz_len, "--socket-directory=%s", sockdir);
         if (broker_opts)
             add_args_sep (&argz, &argz_len, broker_opts, ',');
@@ -298,7 +299,9 @@ int start_direct (optparse_t p, const char *cmd)
         }
     }
 
+    free (sid);
     free (pids);
+    free (sockdir);
     return (rc);
 }
 
