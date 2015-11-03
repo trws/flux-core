@@ -29,6 +29,7 @@
 #include <json.h>
 #include <flux/core.h>
 
+#include "src/common/libutil/shastring.h"
 #include "src/common/libutil/xzmalloc.h"
 #include "src/common/libutil/log.h"
 #include "src/common/libutil/shortjson.h"
@@ -60,6 +61,8 @@ void cmd_copy_tokvs (flux_t h, int argc, char **argv);
 void cmd_copy_fromkvs (flux_t h, int argc, char **argv);
 void cmd_dir (flux_t h, int argc, char **argv);
 void cmd_dirsize (flux_t h, int argc, char **argv);
+void cmd_putobj (flux_t h, int argc, char **argv);
+void cmd_getobj (flux_t h, int argc, char **argv);
 
 
 void usage (void)
@@ -83,6 +86,8 @@ void usage (void)
 "       flux-kvs wait            version\n"
 "       flux-kvs dropcache\n"
 "       flux-kvs dropcache-all\n"
+"       flux-kvs putobj\n"
+"       flux-kvs getobj HASH\n"
 );
     exit (1);
 }
@@ -148,6 +153,10 @@ int main (int argc, char *argv[])
         cmd_dir (h, argc - optind, argv + optind);
     else if (!strcmp (cmd, "dirsize"))
         cmd_dirsize (h, argc - optind, argv + optind);
+    else if (!strcmp (cmd, "getobj"))
+        cmd_getobj (h, argc - optind, argv + optind);
+    else if (!strcmp (cmd, "putobj"))
+        cmd_putobj (h, argc - optind, argv + optind);
     else
         usage ();
 
@@ -596,6 +605,50 @@ void cmd_dirsize (flux_t h, int argc, char **argv)
         err_exit ("%s", argv[0]);
     printf ("%d\n", kvsdir_get_size (dir));
     kvsdir_destroy (dir);
+}
+
+void cmd_getobj (flux_t h, int argc, char **argv)
+{
+    flux_rpc_t *rpc;
+    uint8_t key[20];
+    uint8_t *data;
+    int size;
+
+    if (argc != 1)
+        msg_exit ("getobj: specify 40 character SHA1 hash key");
+    if (sha1_strtohash (argv[0], key) < 0)
+        msg_exit ("getobj: not a valid SHA1 hash key");
+    if (!(rpc = cas_load (h, key, sizeof (key))))
+        err_exit ("cas_load");
+    if (cas_load_get_data (rpc, &data, &size) < 0)
+        err_exit ("cas_load_get_data");
+    if (write_all (STDOUT_FILENO, data, size) < 0)
+        err_exit ("write_all");
+    flux_rpc_destroy (rpc);
+}
+
+void cmd_putobj (flux_t h, int argc, char **argv)
+{
+    flux_rpc_t *rpc;
+    uint8_t *key = NULL;
+    uint8_t *data = NULL;
+    char ref[41];
+    int key_size, size;
+
+    if (argc != 0)
+        msg_exit ("putobj: provide data on stdin");
+    if ((size = read_all (STDIN_FILENO, &data)) < 0)
+        err_exit ("read_all");
+    if (!(rpc = cas_store (h, data, size)))
+        err_exit ("cas_store");
+    if (cas_store_get_hash (rpc, &key, &key_size) < 0)
+        err_exit ("flux_rpc_get_raw");
+    if (key_size != 20)
+        msg_exit ("wrong key size returned");
+    sha1_hashtostr (key, ref);
+    printf ("%s\n", ref);
+    flux_rpc_destroy (rpc);
+    free (data);
 }
 
 /*
