@@ -32,6 +32,7 @@
 #include "core/flux.h"
 
 #include "core/kvs.h"
+#include "core/content.h"
 #include "core/live.h"
 #include "core/barrier.h"
 #include "core/jstatctl.h"
