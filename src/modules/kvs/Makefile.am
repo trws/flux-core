@@ -12,7 +12,7 @@ AM_CPPFLAGS = \
 #
 # Comms module
 #
-fluxmod_LTLIBRARIES = kvs.la
+fluxmod_LTLIBRARIES = kvs.la cas.la
 
 kvs_la_SOURCES = \
 	kvs.c \
@@ -23,6 +23,14 @@ kvs_la_SOURCES = \
 
 kvs_la_LDFLAGS = $(fluxmod_ldflags) -module
 kvs_la_LIBADD = $(top_builddir)/src/common/libflux-internal.la \
+		$(top_builddir)/src/common/libflux-core.la \
+		$(JSON_LIBS) $(ZMQ_CFLAGS)
+
+cas_la_SOURCES = \
+	cas.c
+
+cas_la_LDFLAGS = $(fluxmod_ldflags) -module
+cas_la_LIBADD = $(top_builddir)/src/common/libflux-internal.la \
 		$(top_builddir)/src/common/libflux-core.la \
 		$(JSON_LIBS) $(ZMQ_CFLAGS)
 

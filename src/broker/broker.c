@@ -72,7 +72,7 @@
 #endif
 
 const char *default_modules =
-    "connector-local,modctl,kvs,live,mecho,job[0],wrexec,barrier,resource-hwloc";
+    "connector-local,modctl,kvs,cas[0],live,mecho,job[0],wrexec,barrier,resource-hwloc";
 
 const char *default_boot_method = "pmi";
 
