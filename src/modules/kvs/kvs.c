@@ -75,6 +75,7 @@
 #include <fnmatch.h>
 #include <flux/core.h>
 
+#include "src/common/libutil/shastring.h"
 #include "src/common/libutil/shortjson.h"
 #include "src/common/libutil/jsonutil.h"
 #include "src/common/libutil/xzmalloc.h"
@@ -167,6 +168,7 @@ typedef struct {
     int epoch;              /* tracks current heartbeat epoch */
     struct timespec commit_time; /* time of most recent commit */
     bool timer_armed;
+    struct json_tokener *tok;
 } ctx_t;
 
 enum {
@@ -177,6 +179,8 @@ enum {
 static int setroot_event_send (ctx_t *ctx, const char *fence);
 static void commit_respond (ctx_t *ctx, zmsg_t **zmsg, const char *sender,
                             const char *rootdir, int rootseq);
+static void load_complete (ctx_t *ctx, const href_t ref, json_object *o);
+static void store_complete (ctx_t *ctx, href_t ref);
 
 static void freectx (void *arg)
 {
@@ -189,6 +193,8 @@ static void freectx (void *arg)
         zhash_destroy (&ctx->fences);
     if (ctx->watchlist)
         wait_queue_destroy (ctx->watchlist);
+    if (ctx->tok)
+        json_tokener_free (ctx->tok);
     free (ctx);
 }
 
@@ -209,6 +215,8 @@ static ctx_t *getctx (flux_t h)
         ctx->h = h;
         if (flux_get_rank (h, &rank) == 0 && rank == 0)
             ctx->master = true;
+        if (!(ctx->tok = json_tokener_new ()))
+            oom ();
         flux_aux_set (h, "kvssrv", ctx, freectx);
     }
 
@@ -281,7 +289,7 @@ static fence_t *fence_create (int nprocs)
 
 static void fence_destroy (fence_t *f)
 {
-    free (f); 
+    free (f);
 }
 
 static bool hobj_update (ctx_t *ctx, hobj_t *hp, json_object *o)
@@ -326,7 +334,64 @@ static void load_request_send (ctx_t *ctx, const href_t ref)
                                    FLUX_MATCHTAG_NONE, "kvs.load", o) < 0)
         flux_log (ctx->h, LOG_ERR, "%s: flux_json_request", __FUNCTION__);
     json_object_put (o);
-    ctx->stats.faults++;
+}
+
+static int cas_load_complete (ctx_t *ctx, flux_rpc_t *rpc)
+{
+    json_object *o;
+    void *data;
+    int size, rc = -1;
+    href_t ref;
+    void *hash;
+
+    if (cas_load_get_data (rpc, &data, &size) < 0)
+        goto done;
+    if (cas_load_get_hash (rpc, &hash, NULL) < 0)
+        goto done;
+    if (!(o = json_tokener_parse_ex (ctx->tok, (char *)data, size))) {
+        errno = EPROTO;
+        json_tokener_reset (ctx->tok);
+        goto done;
+    }
+    sha1_hashtostr (hash, ref);
+    load_complete (ctx, ref, o); /* takes ownership of 'o' (or frees it) */
+    rc = 0;
+done:
+    return rc;
+}
+
+static void cas_load_completion (flux_rpc_t *rpc, void *arg)
+{
+    ctx_t *ctx = arg;
+
+    if (cas_load_complete (ctx, rpc) < 0)
+        flux_log_error (ctx->h, "cas_load_complete");
+    flux_rpc_destroy (rpc);
+}
+
+/* If now is true, perform the load rpc synchronously;
+ * otherwise arrange for a continuation to handle the response.
+ */
+static int cas_load_request_send (ctx_t *ctx, const href_t ref, bool now)
+{
+    flux_rpc_t *rpc = NULL;
+    uint8_t hash[20];
+
+    //flux_log (ctx->h, LOG_DEBUG, "%s: %s", __FUNCTION__, ref);
+    if (sha1_strtohash (ref, hash) < 0)
+        goto error;
+    if (!(rpc = cas_load (ctx->h, hash, sizeof (hash))))
+        goto error;
+    if (now) {
+        if (cas_load_complete (ctx, rpc) < 0)
+            goto error;
+        flux_rpc_destroy (rpc);
+    } else if (flux_rpc_then (rpc, cas_load_completion, ctx) < 0)
+        goto error;
+    return 0;
+error:
+    flux_rpc_destroy (rpc);
+    return -1;
 }
 
 static bool load (ctx_t *ctx, const href_t ref, wait_t w, json_object **op)
@@ -337,30 +402,30 @@ static bool load (ctx_t *ctx, const href_t ref, wait_t w, json_object **op)
     if (hp)
         hp->lastuse_epoch = ctx->epoch;
 
-    if (ctx->master) {
-        /* FIXME: probably should handle this "can't happen" situation.
-         */
-        if (!hp || hp->state != HOBJ_COMPLETE)
-            msg_exit ("dangling ref %s", ref);
-    } else {
-        /* Create an incomplete hash entry if none found.
-         */
-        if (!hp) {
-            hp = hobj_create (ctx, NULL);
-            zhash_insert (ctx->store, ref, hp);
-            zhash_freefn (ctx->store, ref, (zhash_free_fn *)hobj_destroy);
-            hp->state = HOBJ_INCOMPLETE;
+    /* Create an incomplete hash entry if none found.
+     */
+    if (!hp) {
+        hp = hobj_create (ctx, NULL);
+        zhash_insert (ctx->store, ref, hp);
+        zhash_freefn (ctx->store, ref, (zhash_free_fn *)hobj_destroy);
+        hp->state = HOBJ_INCOMPLETE;
+        if (ctx->master) {
+            if (cas_load_request_send (ctx, ref, w ? false : true) < 0)
+                flux_log_error (ctx->h, "cas_load_request_send");
+        } else {
             load_request_send (ctx, ref);
         }
-        /* If hash entry is incomplete (either created above or earlier),
-         * arrange to stall caller if wait_t was provided.
-         */
-        if (hp->state == HOBJ_INCOMPLETE) {
-            if (w)
-                wait_addqueue (hp->waitlist, w);
-            done = false; /* stall */
-        }
+        ctx->stats.faults++;
     }
+    /* If hash entry is incomplete (either created above or earlier),
+     * arrange to stall caller if wait_t was provided.
+     */
+    if (hp->state == HOBJ_INCOMPLETE) {
+        if (w)
+            wait_addqueue (hp->waitlist, w);
+        done = false; /* stall */
+    }
+
     if (done) {
         FASSERT (ctx->h, hp != NULL);
         FASSERT (ctx->h, hp->o != NULL);
@@ -372,15 +437,22 @@ static bool load (ctx_t *ctx, const href_t ref, wait_t w, json_object **op)
 
 /* Store the results of a load request.
  */
-static void load_complete (ctx_t *ctx, href_t ref, json_object *o)
+static void load_complete (ctx_t *ctx, const href_t ref, json_object *o)
 {
     hobj_t *hp = zhash_lookup (ctx->store, ref);
 
-    FASSERT (ctx->h, hp != NULL);
-    FASSERT (ctx->h, hp->state == HOBJ_INCOMPLETE);
-    (void)hobj_update (ctx, hp, o);
-    hp->state = HOBJ_COMPLETE;
-    wait_runqueue (hp->waitlist);
+    if (hp) {
+        (void)hobj_update (ctx, hp, o);
+        if (hp->state == HOBJ_INCOMPLETE) {
+            hp->state = HOBJ_COMPLETE;
+            wait_runqueue (hp->waitlist);
+        }
+    } else {
+        hp = hobj_create (ctx, o);
+        hp->state = HOBJ_COMPLETE;
+        zhash_update (ctx->store, ref, hp);
+        zhash_freefn (ctx->store, ref, (zhash_free_fn *)hobj_destroy);
+    }
 }
 
 static void store_request_send (ctx_t *ctx, const href_t ref, json_object *val)
@@ -393,6 +465,49 @@ static void store_request_send (ctx_t *ctx, const href_t ref, json_object *val)
                                    FLUX_MATCHTAG_NONE, "kvs.store", o) < 0)
         flux_log (ctx->h, LOG_ERR, "%s: flux_json_request", __FUNCTION__);
     json_object_put (o);
+}
+
+static int cas_store_complete (ctx_t *ctx, flux_rpc_t *rpc)
+{
+    uint8_t *key;
+    int rc = -1;
+    href_t ref;
+
+    if (cas_store_get_hash (rpc, &key, NULL) < 0)
+        goto done;
+    sha1_hashtostr (key, ref);
+    //flux_log (ctx->h, LOG_DEBUG, "%s: %s", __FUNCTION__, ref);
+    store_complete (ctx, ref);
+    rc = 0;
+done:
+    return rc;
+}
+
+static void cas_store_completion (flux_rpc_t *rpc, void *arg)
+{
+    ctx_t *ctx = arg;
+
+    if (cas_store_complete (ctx, rpc) < 0)
+        flux_log_error (ctx->h, "cas_store_complete");
+    flux_rpc_destroy (rpc);
+}
+
+static int cas_store_request_send (ctx_t *ctx, const href_t ref,
+                                   json_object *val)
+{
+    flux_rpc_t *rpc;
+    const char *data = Jtostr (val);
+    int size = strlen (data);
+
+    //flux_log (ctx->h, LOG_DEBUG, "%s: %s", __FUNCTION__, ref);
+    if (!(rpc = cas_store (ctx->h, data, size)))
+        goto error;
+    if (flux_rpc_then (rpc, cas_store_completion, ctx) < 0)
+        goto error;
+    return 0;
+error:
+    flux_rpc_destroy (rpc);
+    return -1;
 }
 
 /* N.B. cache may have expired (if not dirty) so consider object
@@ -433,10 +548,11 @@ static void store (ctx_t *ctx, json_object *o, href_t ref)
         hp = hobj_create (ctx, o);
         zhash_insert (ctx->store, ref, hp);
         zhash_freefn (ctx->store, ref, (zhash_free_fn *)hobj_destroy);
+        hp->state = HOBJ_DIRTY;
         if (ctx->master) {
-            hp->state = HOBJ_COMPLETE;
+            if (cas_store_request_send (ctx, ref, o) < 0)
+                flux_log_error (ctx->h, "cas_store");
         } else {
-            hp->state = HOBJ_DIRTY;
             store_request_send (ctx, ref, o);
         }
     }
@@ -448,10 +564,10 @@ static void store_complete (ctx_t *ctx, href_t ref)
 {
     hobj_t *hp = zhash_lookup (ctx->store, ref);
 
-    FASSERT (ctx->h, hp != NULL);
-    FASSERT (ctx->h, hp->state == HOBJ_DIRTY);
-    hp->state = HOBJ_COMPLETE;
-    wait_runqueue (hp->waitlist);
+    if (hp && hp->state == HOBJ_DIRTY) {
+        hp->state = HOBJ_COMPLETE;
+        wait_runqueue (hp->waitlist);
+    }
 }
 
 static void setroot (ctx_t *ctx, const char *rootdir, int rootseq)
@@ -870,16 +986,7 @@ static int dropcache_cb (flux_t h, int typemask, zmsg_t **zmsg, void *arg)
     int sz;
 
     sz = zhash_size (ctx->store);
-    if (ctx->master) {
-    /* No dropcache allowed on the master.
-     * We cannot clean up here without dropping all client caches too
-     * because 'stores' for in-cache objects are suppressed and never
-     * reach the master.  Also it's too dangerous to depend on multicast
-     * to drop master and slaves at once without flushing pending work.
-     */
-    } else {
-        expcount = expire_cache (ctx, 0);
-    }
+    expcount = expire_cache (ctx, 0);
     flux_log (h, LOG_ALERT, "dropped %d of %d cache entries", expcount, sz);
     if ((typemask & FLUX_MSGTYPE_REQUEST))
         flux_err_respond (h, rc, zmsg);
@@ -894,19 +1001,15 @@ static int hb_cb (flux_t h, int typemask, zmsg_t **zmsg, void *arg)
         flux_log (ctx->h, LOG_ERR, "%s: bad message", __FUNCTION__);
         goto done;
     }
-    if (ctx->master) {
-        /* no cache expiry on master - see comment in dropcache_cb */
-    } else {
-        /* "touch" objects involved in watched keys */
-        if (ctx->epoch - ctx->watchlist_lastrun_epoch > max_lastuse_age) {
-            wait_runqueue (ctx->watchlist);
-            ctx->watchlist_lastrun_epoch = ctx->epoch;
-        }
-        /* "touch" root */
-        (void)load (ctx, ctx->rootdir, NULL, NULL);
-
-        expire_cache (ctx, max_lastuse_age);
+    /* "touch" objects involved in watched keys */
+    if (ctx->epoch - ctx->watchlist_lastrun_epoch > max_lastuse_age) {
+        wait_runqueue (ctx->watchlist);
+        ctx->watchlist_lastrun_epoch = ctx->epoch;
     }
+    /* "touch" root */
+    (void)load (ctx, ctx->rootdir, NULL, NULL);
+
+    expire_cache (ctx, max_lastuse_age);
 done:
     return 0;
 }
@@ -1934,8 +2037,8 @@ int mod_main (flux_t h, int argc, char **argv)
         flux_log (h, LOG_ERR, "flux_msghandler_add: %s", strerror (errno));
         return -1;
     }
-    if (flux_reactor_start (h) < 0) {
-        flux_log (h, LOG_ERR, "flux_reactor_start: %s", strerror (errno));
+    if (flux_reactor_run (flux_get_reactor (h), 0) < 0) {
+        flux_log_error (h, "flux_reactor_run");
         return -1;
     }
     return 0;
