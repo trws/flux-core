@@ -19,7 +19,8 @@ kvs_la_SOURCES = \
 	waitqueue.c \
 	waitqueue.h \
 	proto.c \
-	proto.h
+	proto.h \
+	libcas.c
 
 kvs_la_LDFLAGS = $(fluxmod_ldflags) -module
 kvs_la_LIBADD = $(top_builddir)/src/common/libflux-internal.la \
@@ -38,13 +39,14 @@ cas_la_LIBADD = $(top_builddir)/src/common/libflux-internal.la \
 # API for module
 #
 fluxlib_LTLIBRARIES = libkvs.la
-fluxcoreinclude_HEADERS = kvs.h
+fluxcoreinclude_HEADERS = kvs.h cas.h
 libkvs_la_SOURCES = \
 	libkvs.c \
 	conf.c \
-	proto.c
+	proto.c \
+	libcas.c
 libkvs_la_LDFLAGS = $(fluxlib_ldflags) \
-		    -export-symbols-regex '^(kvs|kvsdir|kvsitr)_.*'
+		    -export-symbols-regex '^(cas|kvs|kvsdir|kvsitr)_.*'
 libkvs_la_LIBADD =  $(top_builddir)/src/common/libflux-internal.la \
 		    $(top_builddir)/src/common/libflux-core.la
 

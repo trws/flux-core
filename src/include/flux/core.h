@@ -8,6 +8,7 @@
 #include "src/common/libcompat/compat.h" // temporary
 
 #include "src/modules/kvs/kvs.h"
+#include "src/modules/kvs/cas.h"
 #include "src/modules/live/live.h"
 #include "src/modules/barrier/barrier.h"
 #include "src/modules/libjsc/jstatctl.h"
