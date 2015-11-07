@@ -32,6 +32,9 @@ AC_DEFUN([X_AC_ZEROMQ], [
  Failed to detect CURVE support in libzmq!
  Perhaps you need to compile with libsodium?])
     fi
+
+    AC_CHECK_FUNCS([zhashx_new])
+
     LIBS="$ac_save_LIBS"
     CFLAGS="$ac_save_CFLAGS"
 

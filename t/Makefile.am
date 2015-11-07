@@ -114,6 +114,7 @@ check_PROGRAMS = \
 	pmi/pminfo \
 	kz/kzutil \
 	kvs/torture \
+	kvs/hashtest \
 	kvs/watch
 
 if HAVE_MPI
@@ -201,3 +202,8 @@ kvs_watch_CPPFLAGS = $(test_cppflags)
 kvs_watch_LDADD = \
 	$(top_builddir)/src/modules/kvs/libkvs.la \
 	$(test_ldadd) $(LIBDL) $(LIBUTIL)
+
+kvs_hashtest_SOURCES = kvs/hashtest.c
+kvs_hashtest_CPPFLAGS = $(test_cppflags)
+kvs_hashtest_LDADD = \
+	$(test_ldadd) $(LIBDL) $(LIBUTIL) $(LIBJUDY) $(LIBSQLITE3)
