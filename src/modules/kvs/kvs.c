@@ -75,6 +75,7 @@
 #include <fnmatch.h>
 #include <flux/core.h>
 
+#include "src/common/libutil/shastring.h"
 #include "src/common/libutil/shortjson.h"
 #include "src/common/libutil/jsonutil.h"
 #include "src/common/libutil/xzmalloc.h"
@@ -168,8 +169,8 @@ typedef struct {
     int epoch;              /* tracks current heartbeat epoch */
     struct timespec commit_time; /* time of most recent commit */
     bool commit_timer_armed;
-    struct json_tokener *tok;
     flux_watcher_t *commit_timer;
+    struct json_tokener *tok;
 } ctx_t;
 
 enum {
@@ -196,9 +197,9 @@ static void freectx (void *arg)
         zhash_destroy (&ctx->fences);
         if (ctx->watchlist)
             wait_queue_destroy (ctx->watchlist);
-        flux_watcher_destroy (ctx->commit_timer);
         if (ctx->tok)
             json_tokener_free (ctx->tok);
+        flux_watcher_destroy (ctx->commit_timer);
         free (ctx);
     }
 }
@@ -226,12 +227,14 @@ static ctx_t *getctx (flux_t h)
             goto error;
         if (rank == 0)
             ctx->master = true;
+        if (!(ctx->tok = json_tokener_new ())) {
+            errno = ENOMEM;
+            goto error;
+        }
         if (!(ctx->commit_timer = flux_timer_watcher_create (r,
                                                 min_commit_window, 0.,
                                                 commit_timeout_handler, ctx)))
             goto error;
-        if (!(ctx->tok = json_tokener_new ()))
-            oom ();
         flux_aux_set (h, "kvssrv", ctx, freectx);
     }
     return ctx;
@@ -390,6 +393,59 @@ error:
     return -1;
 }
 
+static void content_load_completion (flux_rpc_t *rpc, void *arg)
+{
+    ctx_t *ctx = arg;
+    json_object *o;
+    void *data;
+    int size;
+    href_t ref;
+    void *hash;
+
+    if (content_load_get_data (rpc, &data, &size) < 0) {
+        flux_log_error (ctx->h, "%s", __FUNCTION__);
+        goto done;
+    }
+    if (content_load_get_hash (rpc, &hash, NULL) < 0) {
+        flux_log_error (ctx->h, "%s", __FUNCTION__);
+        goto done;
+    }
+    if (!(o = json_tokener_parse_ex (ctx->tok, (char *)data, size))) {
+        errno = EPROTO;
+        flux_log_error (ctx->h, "%s", __FUNCTION__);
+        json_tokener_reset (ctx->tok);
+        goto done;
+    }
+    sha1_hashtostr (hash, ref);
+    load_complete (ctx, ref, o); /* takes ownership of 'o' (or frees it) */
+done:
+    flux_rpc_destroy (rpc);
+}
+
+/* If now is true, perform the load rpc synchronously;
+ * otherwise arrange for a continuation to handle the response.
+ */
+static int content_load_request_send (ctx_t *ctx, const href_t ref, bool now)
+{
+    flux_rpc_t *rpc = NULL;
+    uint8_t hash[20];
+
+    //flux_log (ctx->h, LOG_DEBUG, "%s: %s", __FUNCTION__, ref);
+    if (sha1_strtohash (ref, hash) < 0)
+        goto error;
+    if (!(rpc = content_load (ctx->h, hash, sizeof (hash))))
+        goto error;
+    if (now) {
+        content_load_completion (rpc, ctx);
+        flux_rpc_destroy (rpc);
+    } else if (flux_rpc_then (rpc, content_load_completion, ctx) < 0)
+        goto error;
+    return 0;
+error:
+    flux_rpc_destroy (rpc);
+    return -1;
+}
+
 static bool load (ctx_t *ctx, const href_t ref, wait_t *wait, json_object **op)
 {
     hobj_t *hp = zhash_lookup (ctx->store, ref);
@@ -397,12 +453,6 @@ static bool load (ctx_t *ctx, const href_t ref, wait_t *wait, json_object **op)
 
     if (hp)
         hp->lastuse_epoch = ctx->epoch;
-    if (ctx->master) {
-        /* FIXME: probably should handle this "can't happen" situation.
-         */
-        if (!hp || hp->state != HOBJ_COMPLETE)
-            msg_exit ("dangling ref %s", ref);
-    }
 
     /* Create an incomplete hash entry if none found.
      */
@@ -411,8 +461,13 @@ static bool load (ctx_t *ctx, const href_t ref, wait_t *wait, json_object **op)
         zhash_insert (ctx->store, ref, hp);
         zhash_freefn (ctx->store, ref, (zhash_free_fn *)hobj_destroy);
         hp->state = HOBJ_INCOMPLETE;
-        if (load_request_send (ctx, ref) < 0)
-            flux_log_error (ctx->h, "load_request_send");
+        if (ctx->master) {
+            if (content_load_request_send (ctx, ref, wait ? false : true) < 0)
+                flux_log_error (ctx->h, "content_load_request_send");
+        } else {
+            if (load_request_send (ctx, ref) < 0)
+                flux_log_error (ctx->h, "load_request_send");
+        }
         ctx->stats.faults++;
     }
     /* If hash entry is incomplete (either created above or earlier),
@@ -496,6 +551,41 @@ error:
     return -1;
 }
 
+static void content_store_completion (flux_rpc_t *rpc, void *arg)
+{
+    ctx_t *ctx = arg;
+    uint8_t *key;
+    href_t ref;
+
+    if (content_store_get_hash (rpc, &key, NULL) < 0) {
+        flux_log_error (ctx->h, "%s", __FUNCTION__);
+        goto done;
+    }
+    sha1_hashtostr (key, ref);
+    //flux_log (ctx->h, LOG_DEBUG, "%s: %s", __FUNCTION__, ref);
+    store_complete (ctx, ref);
+done:
+    flux_rpc_destroy (rpc);
+}
+
+static int content_store_request_send (ctx_t *ctx, const href_t ref,
+                                   json_object *val)
+{
+    flux_rpc_t *rpc;
+    const char *data = Jtostr (val);
+    int size = strlen (data);
+
+    //flux_log (ctx->h, LOG_DEBUG, "%s: %s", __FUNCTION__, ref);
+    if (!(rpc = content_store (ctx->h, data, size)))
+        goto error;
+    if (flux_rpc_then (rpc, content_store_completion, ctx) < 0)
+        goto error;
+    return 0;
+error:
+    flux_rpc_destroy (rpc);
+    return -1;
+}
+
 /* N.B. cache may have expired (if not dirty) so consider object
  * states of missing and incomplete to be "not dirty" in this context.
  */
@@ -534,10 +624,11 @@ static void store (ctx_t *ctx, json_object *o, href_t ref)
         hp = hobj_create (ctx, o);
         zhash_insert (ctx->store, ref, hp);
         zhash_freefn (ctx->store, ref, (zhash_free_fn *)hobj_destroy);
+        hp->state = HOBJ_DIRTY;
         if (ctx->master) {
-            hp->state = HOBJ_COMPLETE;
+            if (content_store_request_send (ctx, ref, o) < 0)
+                flux_log_error (ctx->h, "content_store");
         } else {
-            hp->state = HOBJ_DIRTY;
             store_request_send (ctx, ref, o);
         }
     }
@@ -943,10 +1034,6 @@ static void dropcache_request_cb (flux_t h, flux_msg_handler_t *w,
 
     if (flux_request_decode (msg, NULL, NULL) < 0)
         goto done;
-    if (ctx->master) {
-        errno = EINVAL;
-        goto done;
-    }
     size = zhash_size (ctx->store);
     expcount = expire_cache (ctx, 0);
     flux_log (h, LOG_ALERT, "dropped %d of %d cache entries", expcount, size);
@@ -962,8 +1049,6 @@ static void dropcache_event_cb (flux_t h, flux_msg_handler_t *w,
     ctx_t *ctx = arg;
     int size, expcount = 0;
 
-    if (ctx->master)
-        return;
     if (flux_event_decode (msg, NULL, NULL) < 0)
         return;
     size = zhash_size (ctx->store);
