@@ -203,7 +203,10 @@ kvs_watch_LDADD = \
 	$(top_builddir)/src/modules/kvs/libkvs.la \
 	$(test_ldadd) $(LIBDL) $(LIBUTIL)
 
-kvs_hashtest_SOURCES = kvs/hashtest.c
-kvs_hashtest_CPPFLAGS = $(test_cppflags) $(SQLITE_CFLAGS)
+kvs_hashtest_SOURCES = kvs/hashtest.cpp
+kvs_hashtest_CPPFLAGS = $(test_cppflags) $(SQLITE_CFLAGS) $(JEMALLOC_CFLAGS) $(SPARSEHASH_CFLAGS)
+kvs_hashtest_CXXFLAGS = -std=c++14 -O3
 kvs_hashtest_LDADD = \
-	$(test_ldadd) $(LIBDL) $(LIBUTIL) $(LIBJUDY) $(SQLITE_LIBS)
+	$(test_ldadd) $(LIBDL) $(LIBUTIL) $(LIBJUDY) $(SQLITE_LIBS) \
+	$(SPARSEHASH_LIBS) \
+	$(JEMALLOC_LIBS) # NOTE: this should be last to ensure all allocations go through it

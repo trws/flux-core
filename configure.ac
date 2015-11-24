@@ -106,6 +106,8 @@ PKG_CHECK_MODULES([JSON], [json], [],
   [PKG_CHECK_MODULES([JSON], [json-c])])
 PKG_CHECK_MODULES([HWLOC], [hwloc >= 1.4], [], [])
 PKG_CHECK_MODULES([SQLITE], [sqlite3], [], [])
+PKG_CHECK_MODULES([JEMALLOC], [jemalloc], [], [])
+PKG_CHECK_MODULES([SPARSEHASH], [libsparsehash], [], [])
 LX_FIND_MPI
 AM_CONDITIONAL([HAVE_MPI], [test "$have_C_mpi" = yes])
 AX_CODE_COVERAGE
