@@ -42,7 +42,6 @@ extern "C" {
 #include <google/sparse_hash_map>
 #include <google/dense_hash_map>
 #include <boost/functional/hash.hpp>
-#include "hash-map.h"
 
 #include <city.h>
 #include <citycrc.h>
@@ -910,8 +909,6 @@ int main (int argc, char *argv[])
 #endif
     else if (!strcmp (argv[1], "map"))
         impl = create_treemap<std::map<array, item>> ();
-    else if (!strcmp (argv[1], "lmap"))
-        impl = create_map<hash_map<array, item>> ();
     else if (!strcmp (argv[1], "umap"))
         impl = create_map<std::unordered_map<array, item, boost::hash<array>>> ();
     else if (!strcmp (argv[1], "smap"))
