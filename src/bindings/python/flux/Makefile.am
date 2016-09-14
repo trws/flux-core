@@ -107,7 +107,7 @@ lib-copy: ${fluxpy_PYTHON} ${fluxpy_LTLIBRARIES}
 	for LIB in ${fluxpy_LTLIBRARIES:la=so} ; do \
 	    cp -f .libs/$$LIB ./ ; \
 	done
-	[ "$(top_srcdir)" != "$(top_builddir)" ] && cp  -r $(top_srcdir)/src/bindings/python/flux/*.py $(top_srcdir)/src/bindings/python/flux/core ./ || true
+	[ "$(top_srcdir)" != "$(top_builddir)" ] && cp $(top_srcdir)/src/bindings/python/flux/*.py ./ || true
 
 #TODO: there must be a better way to do this
 check-local: lib-copy
