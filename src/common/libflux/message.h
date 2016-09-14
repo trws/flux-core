@@ -151,8 +151,8 @@ int flux_msg_get_payload_json (const flux_msg_t *msg, const char **json_str);
  * higher level functions (not to be used here).
  */
 enum nodeid {
-    FLUX_NODEID_ANY      = (~(uint32_t)0),
-    FLUX_NODEID_UPSTREAM = (~(uint32_t)1)
+    FLUX_NODEID_ANY      = 0xFFFFFFFF, //(~(uint32_t)0),
+    FLUX_NODEID_UPSTREAM = 0xFFFFFFFE  //(~(uint32_t)1)
 };
 int flux_msg_set_nodeid (flux_msg_t *msg, uint32_t nodeid, int flags);
 int flux_msg_get_nodeid (const flux_msg_t *msg, uint32_t *nodeid, int *flags);
