@@ -284,8 +284,10 @@ done:
     return 0;
 }
 
+#define TRYI(EXP) if ((EXP) < 0) goto error;
+#define TRYP(EXP) if ((EXP) == NULL) goto error;
 int runlevel_set_rc (runlevel_t *r, int level, const char *command,
-                     const char *local_uri)
+                     size_t command_len, const char *local_uri)
 {
     struct subprocess *p = NULL;
     const char *shell = getenv ("SHELL");
@@ -297,26 +299,28 @@ int runlevel_set_rc (runlevel_t *r, int level, const char *command,
         goto error;
     }
 
-    if (!(p = subprocess_create (r->sm))
-            || subprocess_set_context (p, "runlevel", r) < 0
-            || subprocess_add_hook (p, SUBPROCESS_COMPLETE, subprocess_cb) < 0
-            || subprocess_argv_append (p, shell) < 0
-            || (command && subprocess_argv_append (p, "-c") < 0)
-            || (command && subprocess_argv_append (p, command) < 0)
-            || subprocess_set_environ (p, environ) < 0
-            || subprocess_unsetenv (p, "PMI_FD") < 0
-            || subprocess_unsetenv (p, "PMI_RANK") < 0
-            || subprocess_unsetenv (p, "PMI_SIZE") < 0
-            || (local_uri && subprocess_setenv (p, "FLUX_URI",
-                                                local_uri, 1) < 0))
-        goto error;
+    // Only wrap in a shell if there is only one argument
+    bool shell_wrap = argz_count (command, command_len) < 2;
+    TRYP(p = subprocess_create (r->sm));
+    TRYI(subprocess_set_context (p, "runlevel", r));
+    TRYI(subprocess_add_hook (p, SUBPROCESS_COMPLETE, subprocess_cb));
+    if (shell_wrap || !command) {
+        TRYI(subprocess_argv_append (p, shell));
+    }
+    if (shell_wrap) {
+        TRYI(command && subprocess_argv_append (p, "-c"));
+    }
+    TRYI(command && subprocess_argv_append_argz (p, command, command_len));
+    TRYI(subprocess_set_environ (p, environ));
+    TRYI(subprocess_unsetenv (p, "PMI_FD"));
+    TRYI(subprocess_unsetenv (p, "PMI_RANK"));
+    TRYI(subprocess_unsetenv (p, "PMI_SIZE"));
+    TRYI(local_uri && subprocess_setenv (p, "FLUX_URI", local_uri, 1));
+
     if (level == 1 || level == 3) {
-        if (subprocess_setenv (p, "FLUX_NODESET_MASK", r->nodeset, 1) < 0)
-            goto error;
-        if (subprocess_set_io_callback (p, subprocess_io_cb) < 0)
-            goto error;
-        if (subprocess_set_context (p, "runlevel_t", r) < 0)
-            goto error;
+        TRYI(subprocess_setenv (p, "FLUX_NODESET_MASK", r->nodeset, 1));
+        TRYI(subprocess_set_io_callback (p, subprocess_io_cb));
+        TRYI(subprocess_set_context (p, "runlevel_t", r));
     }
     r->rc[level].subprocess = p;
     return 0;
