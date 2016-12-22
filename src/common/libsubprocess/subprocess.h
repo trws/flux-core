@@ -22,6 +22,9 @@
  *  See also:  http://www.gnu.org/licenses/
 \*****************************************************************************/
 
+#ifndef _SUBPROCESS_H
+#define _SUBPROCESS_H
+
 #include <stdbool.h>
 
 struct subprocess_manager;
@@ -342,3 +345,5 @@ int subprocess_io_complete (struct subprocess *p);
  *   be scheduled for stdin one all buffered data is written.
  */
 int subprocess_write (struct subprocess *p, void *buf, size_t count, bool eof);
+
+#endif /* !_SUBPROCESS_H */
