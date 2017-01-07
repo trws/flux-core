@@ -7,6 +7,7 @@ import os
 import importlib
 import sys
 import multiprocessing
+import future
 
 import pycotap as tap
 
@@ -42,7 +43,7 @@ def run_under_dir(result_set, path, mod_prefix, pattern='([^_].*).py$'):
                 pass
             if suite.countTestCases() <= 0:
                 continue
-            print '#Running doctests and unit tests in:', fluxdir + '/' + f
+            print('#Running doctests and unit tests in:', fluxdir + '/' + f)
             run_tests_with_size(result_set, suite, size)
 
 

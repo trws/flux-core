@@ -1,4 +1,6 @@
 from __future__ import print_function
+from __future__ import unicode_literals
+import future
 import re
 import os
 import sys
@@ -11,7 +13,6 @@ import pprint
 import shutil
 import tempfile
 import time
-import Queue
 import pycotap
 
 # pprint.pprint(os.environ)
@@ -43,6 +44,7 @@ def consume(stream):
 class SideFlux(object):
     def __init__(self, size=1):
         global flux_exe
+        self.p = None
         self.size = size
         self.tmpdir = tempfile.mkdtemp(prefix='flux-sandbox-')
         self.flux_uri = 'local://' + self.tmpdir + '/0'
@@ -63,6 +65,7 @@ class SideFlux(object):
             stderr=subprocess.STDOUT,
             close_fds=True,  # Start a process session to clean up brokers
             preexec_fn=os.setsid,
+            universal_newlines=True,
             env=self.subenv, )
         self.p = mp.Process(target=consume, args=(self.sub.stdout, ))
 
@@ -73,6 +76,7 @@ class SideFlux(object):
 
         while True:
             line = self.sub.stdout.readline()
+            print(line)
             if os.environ.get('SIDEFLUX_DEBUG', False):
                 print(line)
             if line != '':

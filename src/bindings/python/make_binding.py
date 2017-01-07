@@ -2,6 +2,7 @@ import os
 import re
 
 import argparse
+import future
 parser = argparse.ArgumentParser()
 
 parser.add_argument('header', help='C header file to parse', type=str)
@@ -83,7 +84,7 @@ ffi.include({module}_ffi)
 
 
 
-  print >>modfile, '''
+  print( '''
 #pylint: disable-all
 # This is a generated file... linting is less than useful
 from cffi import FFI
@@ -122,4 +123,4 @@ if __name__ == "__main__":
         header=include_head,
         extra_source=args.extra_source,
         includes=ffi_include
-        )
+        ), file=modfile)

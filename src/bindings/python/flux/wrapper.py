@@ -6,6 +6,8 @@ number of assumptions about the error propagation and handling that flux uses.
 import re
 import os
 import inspect
+import future
+from future.utils import bind_method
 from types import MethodType
 
 
@@ -156,7 +158,6 @@ class FunctionWrapper(object):
                 self.arg_trans.append(i)
 
     def __call__(self, calling_object, *args_in):
-        # print holder.__name__, 'got', calling_object, args_in
         calling_object.ffi.errno = 0
         caller = calling_object.handle
         args = [caller, ] + \
@@ -267,9 +268,8 @@ class Wrapper(WrapperBase):
             return fun
 
         new_fun = self.check_wrap(fun, name)
-        new_method = MethodType(new_fun, None, self.__class__)
+        bind_method(self.__class__, name, new_fun)
         # Store the wrapper function into the class to prevent a second lookup
-        setattr(self.__class__, name, new_method)
         return self.__getattribute__(name)
 
     def __clear(self):

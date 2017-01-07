@@ -27,6 +27,7 @@
 #endif
 
 #include <Python.h>
+#include <bytesobject.h>
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -46,7 +47,7 @@ typedef void PyObject;
 
 void add_if_not_present(PyObject *list, const char* path){
     if(path){
-        PyObject *pymod_path = PyString_FromString(path);
+        PyObject *pymod_path = PyBytes_FromString(path);
         if (!PySequence_Contains(list, pymod_path)){
             PyList_Append(list, pymod_path);
         }else{
@@ -103,7 +104,7 @@ int mod_main (flux_t *h, int argc, char **argv)
     }
     const char * module_name = argv[option_index];
 
-    Py_SetProgramName("pymod");
+    Py_SetProgramName(L"pymod");
     Py_Initialize();
 
     PyObject *search_path = PySys_GetObject("path");
@@ -128,7 +129,7 @@ int mod_main (flux_t *h, int argc, char **argv)
     if(mod_main && PyCallable_Check(mod_main)){
         //maybe unpack args directly? probably easier to use a dict
         PyObject *py_args = PyTuple_New(3);
-        PyTuple_SetItem(py_args, 0, PyString_FromString(module_name));
+        PyTuple_SetItem(py_args, 0, PyBytes_FromString(module_name));
         PyTuple_SetItem(py_args, 1, PyLong_FromVoidPtr(h));
 
         //Convert zhash to native python dict, should preserve mods
@@ -137,7 +138,7 @@ int mod_main (flux_t *h, int argc, char **argv)
         char ** it = argv + option_index;
         int i;
         for (i=0; *it; i++, it++){
-            PyList_Append(arg_list, PyString_FromString(*it));
+            PyList_Append(arg_list, PyBytes_FromString(*it));
         }
 
         PyTuple_SetItem(py_args, 2, arg_list);
