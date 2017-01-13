@@ -1,5 +1,5 @@
-#include "fop_protected.h"
 #include "fop_dynamic.h"
+#include "fop_protected.h"
 
 #include <assert.h>
 
@@ -11,9 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum fop_magic {
-    magic =  0xdeadbeef
-};
+enum fop_magic { magic = 0xdeadbeef };
 static struct fclass __Class;
 static struct fclass __Object;
 
@@ -62,7 +60,7 @@ const void *fop_get_class_checked (const void *o, const fop_class_t *c)
 const fop_class_t *fop_super (const fop_class_t *c)
 {
     c = fop_cast (fop_class_c (), c);
-    assert(c && c->super);
+    assert (c && c->super);
     return c->super;
 }
 
@@ -86,7 +84,7 @@ bool fop_is_instance_of (const void *o, const fop_class_t *c)
 void *fop_alloc (const fop_class_t *c, size_t size)
 {
     assert (c->size);
-    fop_object_t *o = calloc (1, size ? size : c->size);
+    fop_object_t *o = calloc (1, size > c->size ? size : c->size);
     if (!o) {
         return NULL;
     }
@@ -127,33 +125,37 @@ void *fop_initialize_super (const fop_class_t *c, void *self, va_list *app)
 };
 void fop_finalize (void *o)
 {
-    if (!o) return;
+    if (!o)
+        return;
     const fop_class_t *c = fop_get_class (o);
-    if (c && c->finalize )
+    if (c && c->finalize)
         c->finalize (o);
 };
 void fop_finalize_super (const fop_class_t *c, void *o)
 {
-    if (!o) return;
+    if (!o)
+        return;
     const fop_class_t *superclass = fop_super (c);
-    if (superclass && superclass->finalize )
+    if (superclass && superclass->finalize)
         superclass->finalize (o);
 };
 void fop_retain (void *o)
 {
-    if (!o) return;
+    if (!o)
+        return;
     const fop_class_t *c = fop_get_class (o);
-    if (c && c->retain )
+    if (c && c->retain)
         c->retain (o);
 };
 void fop_release (void *o)
 {
-    if (!o) return;
+    if (!o)
+        return;
     const fop_class_t *c = fop_get_class (o);
-    if (c && c->release )
+    if (c && c->release)
         c->release (o);
 };
-fop * fop_describe (void *o, FILE *s)
+fop *fop_describe (void *o, FILE *s)
 {
     const fop_class_t *c = fop_get_class (o);
     if (!c)
@@ -163,7 +165,7 @@ fop * fop_describe (void *o, FILE *s)
     }
     return c->describe (o, s);
 };
-fop * fop_represent (void *o, FILE *s)
+fop *fop_represent (void *o, FILE *s)
 {
     const fop_class_t *c = fop_get_class (o);
     if (!c)
@@ -199,6 +201,7 @@ void *object_new (const fop_class_t *c, va_list *app)
 };
 void object_finalize (void *o)
 {
+    (void)(o);
     // Nothing to do, release does the free
 };
 void object_retain (void *o)
@@ -222,7 +225,7 @@ void object_release (void *o)
         free (o);
     }
 };
-fop * object_represent (fop *o, FILE *s)
+fop *object_represent (fop *o, FILE *s)
 {
     fop_object_t *obj = fop_cast_object (o);
     if (!obj) {
@@ -235,6 +238,27 @@ fop * object_represent (fop *o, FILE *s)
 };
 
 // Class methods
+void *class_new (const fop_class_t *c, va_list *app)
+{
+    va_list lap;
+    va_copy (lap, *app);
+    va_arg (lap, char *);
+    va_arg (lap, fop_class_t *);
+    size_t size = va_arg (lap, size_t);
+    va_end (lap);
+    void *buf = fop_alloc (c, size);
+    assert (buf);
+    void *res = fop_initialize (buf, app);
+    if (!res) {
+        // XXX: it's arguable if this should be release or not, since init
+        // failed, it may not be valid to release it and call finalize, but
+        // not doing so may leave it partially allocated internally.
+        // auto-release pools would help a lot here, but one thing at a
+        // time...
+        free (buf);
+    }
+    return res;
+};
 
 void *class_initialize (fop *c_in, va_list *app)
 {
@@ -245,11 +269,11 @@ void *class_initialize (fop *c_in, va_list *app)
     size_t offset = offsetof (fop_class_t, new);
 
     const fop_class_t *super_metaclass = fop_get_class (super);
-    /* fprintf (stderr, "inheriting %s(%zu) from %s(%zu), meta %s(%zu)\n", name, */
+    /* fprintf (stderr, "inheriting %s(%zu) from %s(%zu), meta %s(%zu)\n", name,
+     */
     /*          size, super->name, super->size, super_metaclass->name, */
     /*          super_metaclass->size); */
     if (super != NULL && super != c && super->size) {
-        fop_dynamic_class_init (c, super);
         // inheritence...
         memcpy (((char *)c) + offset, ((char *)super) + offset,
                 super_metaclass->size - offset);
@@ -258,18 +282,23 @@ void *class_initialize (fop *c_in, va_list *app)
     c->super = super;
     c->size = size;
 
+    const fop_class_t *metaclass = fop_get_class (c);
+    c->inner.tags_len =
+        (metaclass->size - offsetof (fop_class_t, new)) / sizeof (struct method_block);
+
     return c;
 };
 
 void *class_desc (fop *c_in, FILE *s)
 {
     fop_class_t *c = c_in;
-    fprintf (s, "class %s(%s){\n", c->name, fop_super(c)->name);
+    fprintf (s, "class %s(%s){\n", c->name, fop_super (c)->name);
     fprintf (s, "    size: %zu\n", c->size);
     fprintf (s, "    tags: %zu\n", c->inner.tags_len);
+    struct method_block *rec = (void*)&c->new;
     for (size_t i = 0; i < c->inner.tags_len; ++i) {
-        struct fop_method_record *rec = c->inner.tags_by_selector + i;
-        fprintf (s, "        %s: %p, %p, %zu\n", rec->tag, rec->selector, rec->method, rec->offset);
+        fprintf (s, "        %s: %p, %p\n", rec[i].fn_info.name, rec[i].fn_info.selector,
+                 rec[i].fn);
     }
     return c_in;
 };
@@ -279,37 +308,36 @@ void *class_desc (fop *c_in, FILE *s)
 // DYNAMIC METHOD INFORMATION
 static struct fop_method_record object_tags[] = {
     {"new", (fop_vv_f)fop_new, (fop_vv_f)object_new,
-        offsetof (fop_class_t, new)},
+     offsetof (fop_class_t, new)},
     {"initialize", (fop_vv_f)fop_initialize, (fop_vv_f)object_initialize,
-        offsetof (fop_class_t, initialize)},
+     offsetof (fop_class_t, initialize)},
     {"finalize", (fop_vv_f)fop_finalize, (fop_vv_f)object_finalize,
-        offsetof (fop_class_t, finalize)},
+     offsetof (fop_class_t, finalize)},
     {"describe", (fop_vv_f)fop_describe, 0,
-        offsetof (fop_class_t, describe)},  // describe
+     offsetof (fop_class_t, describe)},  // describe
     {"represent", (fop_vv_f)fop_represent, (fop_vv_f)object_represent,
-        offsetof (fop_class_t, represent)},
+     offsetof (fop_class_t, represent)},
     {"retain", (fop_vv_f)fop_retain, (fop_vv_f)object_retain,
-        offsetof (fop_class_t, retain)},
+     offsetof (fop_class_t, retain)},
     {"release", (fop_vv_f)fop_release, (fop_vv_f)object_release,
-        offsetof (fop_class_t, release)}};
+     offsetof (fop_class_t, release)}};
 
 static struct fop_method_record class_tags[] = {
     {"new", (fop_vv_f)fop_new, (fop_vv_f)object_new,
-        offsetof (fop_class_t, new)},
+     offsetof (fop_class_t, new)},
     {"initialize", (fop_vv_f)fop_initialize, (fop_vv_f)object_initialize,
-        offsetof (fop_class_t, initialize)},
+     offsetof (fop_class_t, initialize)},
     {"finalize", (fop_vv_f)fop_finalize, (fop_vv_f)object_finalize,
-        offsetof (fop_class_t, finalize)},
+     offsetof (fop_class_t, finalize)},
     {"describe", (fop_vv_f)fop_describe, 0,
-        offsetof (fop_class_t, describe)},  // describe
+     offsetof (fop_class_t, describe)},  // describe
     {"represent", (fop_vv_f)fop_represent, (fop_vv_f)object_represent,
-        offsetof (fop_class_t, represent)},
+     offsetof (fop_class_t, represent)},
     {"retain", (fop_vv_f)fop_retain, (fop_vv_f)object_retain,
-        offsetof (fop_class_t, retain)},
+     offsetof (fop_class_t, retain)},
     {"release", (fop_vv_f)fop_release, (fop_vv_f)object_release,
-        offsetof (fop_class_t, release)}};
+     offsetof (fop_class_t, release)}};
 // END DYNAMIC METHOD INFORMATION
-
 
 static struct fclass __Object = {
 
@@ -323,17 +351,15 @@ static struct fclass __Object = {
     &__Object,               // superclass
     sizeof (struct object),  // size
     {sizeof (object_tags) / sizeof (struct fop_method_record),
-        sizeof (object_tags) / sizeof (struct fop_method_record), object_tags,
-        0,
-        0,
-        0},  // Inner
-    object_new,
-    object_initialize,
-    object_finalize,
-    0,  // describe
-    object_represent,
-    object_retain,
-    object_release};
+     sizeof (object_tags) / sizeof (struct fop_method_record), object_tags, 0,
+     0, 0},  // Inner
+    {object_new, {"new", (fop_vv_f)fop_new}},
+    {object_initialize, {"initialize", (fop_vv_f)fop_initialize}},
+    {object_finalize, {"finalize", (fop_vv_f)fop_finalize}},
+    {0, {"describe", (fop_vv_f)fop_describe}},  // describe
+    {object_represent, {"represent", (fop_vv_f)fop_represent}},
+    {object_retain, {"retain", (fop_vv_f)fop_retain}},
+    {object_release, {"release", (fop_vv_f)fop_release}}};
 
 static struct fclass __Class = {
 
@@ -347,18 +373,15 @@ static struct fclass __Class = {
     &__Object,               // superclass
     sizeof (struct fclass),  // size
     {sizeof (object_tags) / sizeof (struct fop_method_record),
-        sizeof (object_tags) / sizeof (struct fop_method_record), class_tags,
-        0,
-        0,
-        0},  // Inner
-    object_new,
-    class_initialize,
-    0,  // finalize
-    class_desc,  // describe
-    object_represent,
-    0,  // retain
-    0   // release
-};
+     sizeof (object_tags) / sizeof (struct fop_method_record), class_tags, 0, 0,
+     0},  // Inner
+    {object_new, {"new", (fop_vv_f)fop_new}},
+    {class_initialize, {"initialize", (fop_vv_f)fop_initialize}},
+    {0, {"finalize", (fop_vv_f)fop_finalize}},
+    {class_desc, {"describe", (fop_vv_f)fop_describe}},  // describe
+    {object_represent, {"represent", (fop_vv_f)fop_represent}},
+    {0, {"retain", (fop_vv_f)fop_retain}},
+    {0, {"release", (fop_vv_f)fop_release}}};
 
 // object and class class getters
 const fop_class_t *fop_object_c ()
