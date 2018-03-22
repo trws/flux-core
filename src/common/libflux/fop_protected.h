@@ -10,8 +10,10 @@
 
 void fop_tag_object (fop_object_t *o, const fop_class_t *c);
 struct fop_object {
-    int32_t magic;
-    int32_t refcount;
+    int16_t magic;
+    int16_t special;
+    int16_t refcount;
+    int16_t flags;
     const fop_class_t *fclass;
 };
 
