@@ -26,8 +26,8 @@ class TestEvent(unittest.TestCase):
 
     def test_t1_1_unsub(self):
         """Unsubscribe from an event"""
-        self.assertGreaterEqual(self.f.event_subscribe("testevent.1"), 0)
-        self.assertGreaterEqual(self.f.event_unsubscribe("testevent.1"), 0)
+        self.assertGreaterEqual(self.f.event_subscribe("testevent.2"), 0)
+        self.assertGreaterEqual(self.f.event_unsubscribe("testevent.2"), 0)
 
     def test_full_event(self):
         """Subscribe send receive and unpack event"""
@@ -36,7 +36,7 @@ class TestEvent(unittest.TestCase):
             self.f.event_send("testevent.1", {'test': 'yay!'}), 0)
         evt = self.f.event_recv()
         self.assertIsNotNone(evt)
-        self.assertEqual(evt.topic, 'testevent.1')
+        self.assertEqual(evt.topic, b'testevent.1')
         pld = evt.payload
         self.assertIsNotNone(pld)
         self.assertEqual(pld['test'], 'yay!')

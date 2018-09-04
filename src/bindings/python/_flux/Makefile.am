@@ -84,7 +84,7 @@ lib-copy: ${fluxpy_PYTHON} ${fluxpy_LTLIBRARIES}
 	for LIB in ${fluxpy_LTLIBRARIES:la=so} ; do \
 	    cp -f .libs/$$LIB ./ ; \
 	done
-	[ "$(top_srcdir)" != "$(top_builddir)" ] && cp $(top_srcdir)/src/bindings/python/_flux/*.py ./ || true
+	[ "$(top_srcdir)" != "$(top_builddir)" ] && cp $(top_srcdir)/src/bindings/python/flux/*.py ./ || true
 
 if ENABLE_PYLINT
 #TODO: there must be a better way to do this
@@ -100,5 +100,5 @@ clean-local: clean-local-check
 	-rm -f *.c *_build.py *.so *.pyc *.pyo
 
 clean-local-check:
-	[ "$(top_srcdir)" != "$(top_builddir)" ] && rm -f $(top_builddir)/src/bindings/python/_flux/*.py || true
+	[ "$(top_srcdir)" != "$(top_builddir)" ] && rm -f $(top_builddir)/src/bindings/python/flux/*.py || true
 

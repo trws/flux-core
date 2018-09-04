@@ -100,7 +100,7 @@ with open('{}_build.py'.format(args.modname), 'w') as modfile:
   """ + mega_header
 
   ffi_include_base = '''
-from {module} import ffi as {module}_ffi
+from flux.{module} import ffi as {module}_ffi
 ffi.include({module}_ffi)
   '''
   ffi_include = ''
