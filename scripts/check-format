@@ -1,0 +1,10 @@
+#!/bin/bash
+shopt -s globstar
+set -e
+
+if command -v black 2>&1 > /dev/null ; then
+  black --check src/**/*.py t/**/*.py
+else
+  echo "black not found, failing"
+  exit 1
+fi

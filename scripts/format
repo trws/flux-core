@@ -1,0 +1,8 @@
+#!/bin/bash
+shopt -s globstar
+
+if command -v black 2>&1 > /dev/null ; then
+  black src/**/*.py t/**/*.py
+else
+  echo "black not found, python left unformatted"
+fi
