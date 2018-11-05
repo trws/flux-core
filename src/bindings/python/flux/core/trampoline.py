@@ -11,8 +11,7 @@ def mod_main_trampoline(name, int_handle, args):
     # impo__import__('flux.modules.' + name)rt the user's module dynamically
     user_mod = None
     try:
-        user_mod = importlib.import_module(
-            'flux.modules.' + name, 'flux.modules')
+        user_mod = importlib.import_module("flux.modules." + name, "flux.modules")
     except ImportError:  # check user paths for the module
         user_mod = importlib.import_module(name)
 
