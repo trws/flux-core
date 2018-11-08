@@ -29,7 +29,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <assert.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <inttypes.h>
 #include <jansson.h>
 #include <flux/core.h>

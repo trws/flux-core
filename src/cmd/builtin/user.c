@@ -27,7 +27,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <pwd.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 
 typedef struct {
     const char *name;

@@ -1,4 +1,4 @@
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <flux/core.h>
 
 #include "src/common/libutil/xzmalloc.h"

@@ -27,7 +27,7 @@
 #endif
 #include <flux/core.h>
 #include <czmq.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 
 #include "kvs_eventlog.h"
 

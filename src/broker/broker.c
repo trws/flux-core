@@ -41,7 +41,7 @@
 #include <sys/param.h>
 #include <stdbool.h>
 #include <dlfcn.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <flux/core.h>
 #include <czmq.h>
 #if HAVE_CALIPER

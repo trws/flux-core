@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <dlfcn.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <czmq.h>
 
 #include "pmi.h"

@@ -29,7 +29,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <libgen.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <flux/core.h>
 #include <flux/optparse.h>
 #include <czmq.h>

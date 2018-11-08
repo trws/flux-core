@@ -39,7 +39,7 @@
 #include <stdarg.h>
 #include <dlfcn.h>
 #include <inttypes.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <czmq.h>
 #include <flux/core.h>
 #if HAVE_CALIPER

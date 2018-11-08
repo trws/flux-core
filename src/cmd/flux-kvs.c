@@ -31,7 +31,7 @@
 #include <fcntl.h>
 #include <jansson.h>
 #include <czmq.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 
 #include "src/common/libutil/xzmalloc.h"
 #include "src/common/libutil/log.h"

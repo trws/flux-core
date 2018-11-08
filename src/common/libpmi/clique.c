@@ -29,7 +29,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 
 #include "pmi.h"
 #include "clique.h"

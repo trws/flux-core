@@ -27,7 +27,7 @@
 #endif
 #include <stdio.h>
 #include <libgen.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <ctype.h>
 #include <flux/core.h>
 #include <flux/optparse.h>

@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <stdbool.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <flux/core.h>
 #include <inttypes.h>
 

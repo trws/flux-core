@@ -28,7 +28,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <czmq.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #if HAVE_CALIPER
 #include <caliper/cali.h>
 #endif

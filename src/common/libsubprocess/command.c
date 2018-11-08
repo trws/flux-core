@@ -28,7 +28,7 @@
 
 #include <stdlib.h>
 #include <sys/types.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 
 #include <jansson.h>
 #include <czmq.h>

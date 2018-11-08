@@ -39,7 +39,7 @@
 #include <libgen.h>
 #include <stdbool.h>
 #include <fcntl.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <glob.h>
 #include <czmq.h>
 #include <inttypes.h>

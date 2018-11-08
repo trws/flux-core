@@ -30,7 +30,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <jansson.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 
 #include "wreck_job.h"
 

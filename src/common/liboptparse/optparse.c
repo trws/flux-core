@@ -32,7 +32,7 @@
 #include <sys/param.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 
 #include <czmq.h>
 

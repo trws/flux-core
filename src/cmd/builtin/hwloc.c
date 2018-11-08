@@ -30,7 +30,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <assert.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <inttypes.h>
 
 #include <hwloc.h>

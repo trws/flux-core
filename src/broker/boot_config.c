@@ -27,7 +27,7 @@
 #endif
 #include <unistd.h>
 #include <stdbool.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <fnmatch.h>
 
 #include "src/common/libutil/log.h"

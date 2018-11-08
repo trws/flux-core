@@ -14,6 +14,10 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES = libutil.la
 
 libutil_la_SOURCES = \
+	bufz.c \
+	bufz.h \
+	argz.c \
+	argz.h \
 	ipaddr.c \
 	ipaddr.h \
 	log.c \

@@ -30,7 +30,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <sodium.h>
 
 #include "src/common/libutil/macros.h"

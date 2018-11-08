@@ -36,7 +36,7 @@
 #include <poll.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <flux/core.h>
 
 #include "src/common/libutil/log.h"

@@ -38,7 +38,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <stdarg.h>
-#include <argz.h>
+#include "src/common/libutils/argz.h"
 #include <czmq.h>
 #include <flux/core.h>
 
