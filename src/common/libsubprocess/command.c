@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <argz.h>
-#include <envz.h>
 
 #include <jansson.h>
 #include <czmq.h>
@@ -44,8 +43,7 @@ struct flux_command {
     char *argz;
 
     /* Command environment hash */
-    size_t envz_len;
-    char *envz;
+    json_t *env;
 
     /* Extra key=value options */
     zhash_t *opts;
@@ -135,7 +133,7 @@ static char **expand_argz (char *argz, size_t argz_len)
  *
  *  On success, a pointer to `dst` is returned.
  */
-static char *env_entry_name (char *entry, char *dst, size_t len)
+static char *env_entry_name (const char *entry, char *dst, size_t len)
 {
     char *p;
     if (!entry)
@@ -215,26 +213,26 @@ fail:
 }
 
 /*
- *  Convert and envz array (argz with NAME=VALUE entries) to a json
+ *  Convert and env array char ** null terminated to a json
  *   dictionary object.
  */
-static json_t * envz_tojson (const char *envz, size_t envz_len)
+static json_t * env_tojson (const char ** env)
 {
     char buf [1024];
     const char *name, *value;
-    char *entry = NULL;
+    const char **entry = env;
     json_t *o = json_object ();
 
     if (o == NULL)
         goto err;
 
-    while ((entry = argz_next (envz, envz_len, entry))) {
+    while (*entry) {
         json_t *v;
-        if (!(name = env_entry_name (entry, buf, sizeof (buf))))
+        if (!(name = env_entry_name (*entry, buf, sizeof (buf))))
             continue;
-        if (!(value = env_entry_value (entry)))
+        if (!(value = env_entry_value (*entry)))
             continue;
-        if (!(v = json_string (value)) || json_object_set_new (o, name, v)) {
+        if (!(v = json_string (*entry)) || json_object_set_new (o, name, v)) {
             json_decref (v);
             goto err;
         }
@@ -245,29 +243,28 @@ err:
     return NULL;
 }
 
-static int envz_fromjson (json_t *o, char **envzp, size_t *envz_lenp)
+/*
+ *  Convert and env array like argv to a json
+ *   dictionary object.
+ */
+static char **env_fromjson (json_t *o)
 {
-    const char *var;
-    json_t *val;
-    int errnum = EINVAL;
+    const char *name;
+    char **env = calloc (json_object_size (o) + 1, sizeof (char *));
+    int i = 0;
+    json_t *value;
 
-    assert (*envzp == NULL && *envz_lenp == 0);
-    if (!json_is_object (o))
-        goto fail;
+    if (o == NULL)
+        goto err;
 
-    json_object_foreach (o, var, val) {
-        if (!json_is_string (val))
-            goto fail;
-        if (envz_add (envzp, envz_lenp, var, json_string_value (val)))
-            goto fail;
+    json_object_foreach (o, name, value)
+    {
+        env[i] = (char*)json_string_value(value);
     }
-    return 0;
-fail:
-    free (*envzp);
-    *envzp = NULL;
-    *envz_lenp = 0;
-    errno = errnum;
-    return -1;
+    return env;
+err:
+    json_decref (o);
+    return NULL;
 }
 
 /*
@@ -422,7 +419,7 @@ static void flux_cmd_free (flux_cmd_t *cmd)
     if (cmd) {
         free (cmd->cwd);
         free (cmd->argz);
-        free (cmd->envz);
+        json_decref (cmd->env);
         if (cmd->opts)
             zhash_destroy (&cmd->opts);
         if (cmd->channels)
@@ -445,7 +442,8 @@ flux_cmd_t *flux_cmd_create (int argc, char *argv[], char **env)
         err = errno;
         goto fail;
     }
-    if (env && init_argz (&cmd->envz, &cmd->envz_len, env) < 0) {
+    cmd->env = env_tojson (env);
+    if (cmd->env == NULL) {
         err = errno;
         goto fail;
     }
@@ -512,11 +510,11 @@ int flux_cmd_argv_append (flux_cmd_t *cmd, const char *fmt, ...)
 static int flux_cmd_setenv (flux_cmd_t *cmd, const char *k, const char *v,
                             int overwrite)
 {
-    if (!overwrite && envz_entry (cmd->envz, cmd->envz_len, k)) {
+    if (!overwrite && json_object_get (cmd->env, k)) {
         errno = EEXIST;
         return -1;
     }
-    if (envz_add (&cmd->envz, &cmd->envz_len, k, v) != 0) {
+    if (json_object_set_new (cmd->env, k, json_string_sprintf ("%s=%s",k,v)) != 0) {
         errno = ENOMEM;
         return -1;
     }
@@ -542,12 +540,12 @@ int flux_cmd_setenvf (flux_cmd_t *cmd, int overwrite,
 
 void flux_cmd_unsetenv (flux_cmd_t *cmd, const char *name)
 {
-    envz_remove (&cmd->envz, &cmd->envz_len, name);
+    json_object_del (cmd->env, name);
 }
 
-const char * flux_cmd_getenv (const flux_cmd_t *cmd, const char *name)
+const char *flux_cmd_getenv (const flux_cmd_t *cmd, const char *name)
 {
-    return (envz_get (cmd->envz, cmd->envz_len, name));
+    return env_entry_value (json_string_value (json_object_get (cmd->env, name)));
 }
 
 int flux_cmd_setcwd (flux_cmd_t *cmd, const char *path)
@@ -602,7 +600,7 @@ flux_cmd_t * flux_cmd_copy (const flux_cmd_t *src)
     e = argz_append (&cmd->argz, &cmd->argz_len, src->argz, src->argz_len);
     if (e != 0)
         goto err;
-    e = argz_append (&cmd->envz, &cmd->envz_len, src->envz, src->envz_len);
+    e = json_object_update (cmd->env, src->env);
     if (e != 0)
         goto err;
     if (src->cwd && !(cmd->cwd = strdup (src->cwd)))
@@ -645,12 +643,13 @@ flux_cmd_t * flux_cmd_fromjson (const char *json_str, json_error_t *errp)
     }
     if (!(cmd->cwd = strdup (cwd))
         || (argz_fromjson (jargv, &cmd->argz, &cmd->argz_len) < 0)
-        || (envz_fromjson (jenv, &cmd->envz, &cmd->envz_len) < 0)
         || !(cmd->opts = zhash_fromjson (jopts))
         || !(cmd->channels = zlist_fromjson (jchans))) {
         errnum = errno;
         goto fail;
     }
+    json_incref (jenv);
+    cmd->env = jenv;
     /* All sub-objects of `o` inherit reference from root object so
      *  this decref should free jenv, jargv, ... etc.
      */
@@ -691,10 +690,8 @@ char * flux_cmd_tojson (const flux_cmd_t *cmd)
     }
 
     /* Pack env */
-    if (cmd->envz) {
-        if (!(a = envz_tojson (cmd->envz, cmd->envz_len)))
-            goto err;
-        if (json_object_set_new (o, "env", a) != 0) {
+    if (cmd->env) {
+        if (json_object_set (o, "env", cmd->env) != 0) {
             json_decref (a);
             goto err;
         }
@@ -725,7 +722,7 @@ err:
 
 char **flux_cmd_env_expand (flux_cmd_t *cmd)
 {
-    return expand_argz (cmd->envz, cmd->envz_len);
+    return env_fromjson (cmd->env);
 }
 
 char **flux_cmd_argv_expand (flux_cmd_t *cmd)
@@ -735,16 +732,8 @@ char **flux_cmd_argv_expand (flux_cmd_t *cmd)
 
 int flux_cmd_set_env (flux_cmd_t *cmd, char **env)
 {
-    size_t new_envz_len = 0;
-    char *new_envz = NULL;
-
-    if (init_argz (&new_envz, &new_envz_len, env) < 0)
-        return -1;
-
-    if (cmd->envz)
-        free (cmd->envz);
-    cmd->envz = new_envz;
-    cmd->envz_len = new_envz_len;
+    json_decref (cmd->env);
+    cmd->env = env_tojson (env);
 
     return 0;
 }
