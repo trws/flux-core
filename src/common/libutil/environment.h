@@ -14,6 +14,25 @@ void environment_destroy (struct environment *e);
  *
  * @param e the environment to iterate over
  *
+ * @return the key=value contiguous string of the first element or null if the environment is empty
+ */
+const char *environment_first_kv (struct environment *e);
+
+/**
+ * @brief Get the next key in the environment
+ *
+ * @param e the environment to continue iterating over
+ *
+ * @return the key=value contiguous string of the next element or null if iteration is complete or the
+ * environment is empty
+ */
+const char *environment_next_kv (struct environment *e);
+
+/**
+ * @brief Set the iteration cursor for the environment to the first element
+ *
+ * @param e the environment to iterate over
+ *
  * @return the key of the first element or null if the environment is empty
  */
 const char *environment_first (struct environment *e);
@@ -23,7 +42,7 @@ const char *environment_first (struct environment *e);
  *
  * @param e the environment to continue iterating over
  *
- * @return the key of the next element or null if iteration is complete or the
+ * @return the value of the next element or null if iteration is complete or the
  * environment is empty
  */
 const char *environment_next (struct environment *e);
@@ -34,9 +53,19 @@ const char *environment_next (struct environment *e);
  *
  * @param e the envirnoment to operate on
  *
- * @return The value of the current environment element
+ * @return The key of the current environment element
  */
 const char *environment_cursor (struct environment *e);
+
+
+/** 
+ * @brief get number of elements in the environment
+ * 
+ * @param e the environment object
+ * 
+ * @return number of key/value pairs
+ */
+int environment_count (struct environment *e);
 
 /**
  * @brief Apply the changes encoded in this environment to the environment of

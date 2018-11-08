@@ -35,7 +35,6 @@
 #include <sys/signalfd.h>
 #include <czmq.h>
 #include <sys/syslog.h>
-#include <envz.h>
 #include <sys/ptrace.h>
 #include <inttypes.h>
 #include <sys/resource.h>
@@ -50,6 +49,7 @@
 
 #include "src/common/liboptparse/optparse.h"
 #include "src/common/libutil/xzmalloc.h"
+#include "src/common/libutil/environment.h"
 #include "src/common/libutil/sds.h"
 #include "src/common/libutil/fdwalk.h"
 #include "src/common/libzio/zio.h"
@@ -125,8 +125,7 @@ struct prog_ctx {
 
     int argc;
     char **argv;
-    char *envz;
-    size_t envz_len;
+    struct environment* env;
 
     char exedir[MAXPATHLEN]; /* Directory from which this executable is run */
 
@@ -682,7 +681,7 @@ void prog_ctx_destroy (struct prog_ctx *ctx)
     if (ctx->mw)
         flux_msg_handler_destroy (ctx->mw);
 
-    free (ctx->envz);
+    environment_destroy (ctx->env);
     if (ctx->signalfd >= 0)
         close (ctx->signalfd);
 
@@ -772,8 +771,7 @@ struct prog_ctx * prog_ctx_create (void)
         || !(ctx->completion_refs = zhash_new ()))
         wlog_fatal (ctx, 1, "zhash_new");
 
-    ctx->envz = NULL;
-    ctx->envz_len = 0;
+    ctx->env = environment_create();
 
     ctx->id = -1;
     ctx->taskid = -1;
@@ -1315,14 +1313,14 @@ static int aggregator_push_task_exit (struct task_info *t)
 
 void prog_ctx_unsetenv (struct prog_ctx *ctx, const char *name)
 {
-    envz_remove (&ctx->envz, &ctx->envz_len, name);
+    environment_unset (ctx->env, name);
 }
 
 int prog_ctx_setenv (struct prog_ctx *ctx, const char *name, const char *value)
 {
     /* Overwrite: */
-    prog_ctx_unsetenv (ctx, name);
-    return ((int) envz_add (&ctx->envz, &ctx->envz_len, name, value));
+    environment_set (ctx->env, name, value);
+    return 0;
 }
 
 int prog_ctx_setenvf (struct prog_ctx *ctx, const char *name, int overwrite,
@@ -1347,17 +1345,19 @@ int prog_ctx_setenvf (struct prog_ctx *ctx, const char *name, int overwrite,
 
 char * prog_ctx_getenv (struct prog_ctx *ctx, const char *name)
 {
-    return envz_get (ctx->envz, ctx->envz_len, name);
+    return environment_get (ctx->env, name);
 }
 
 char ** prog_ctx_env_create (struct prog_ctx *ctx)
 {
-    char **env;
-    size_t count;
-    envz_strip (&ctx->envz, &ctx->envz_len);
-    count = argz_count (ctx->envz, ctx->envz_len);
-    env = xzmalloc ((count + 1) * sizeof (char *));
-    argz_extract (ctx->envz, ctx->envz_len, env);
+    int i = 0;
+    size_t count = environment_count (ctx->env);
+    char **env = xzmalloc ((count + 1) * sizeof (char *));
+    for (char *str = environment_first_kv (ctx->env);
+            str;
+            str = environment_next_kv (ctx->env)) {
+        env[i] = str;
+    }
     return (env);
 }
 

@@ -68,6 +68,7 @@ struct env_item {
     _Bool clean;
     _Bool unset;
     char *str_cache;
+    char *str_cache_val;
 };
 
 struct env_item * new_env_item(){
@@ -90,7 +91,7 @@ char *find_env_item(struct env_item *i, const char *s)
     return NULL;
 }
 
-static const char *stringify_env_item (struct env_item *item)
+static const char *stringify_env_item (struct env_item *item, const char* key)
 {
     if (!item)
         return NULL;
@@ -100,17 +101,28 @@ static const char *stringify_env_item (struct env_item *item)
         return item->str_cache;
 
     free(item->str_cache);
-    item->str_cache = malloc(item->argz_len);
-    memcpy(item->str_cache, item->argz, item->argz_len);
-    argz_stringify(item->str_cache, item->argz_len, item->sep);
+    item->str_cache = malloc(item->argz_len + strlen (key) + 2);
+    item->str_cache[0] = '\0';
+    strcat (item->str_cache, key);
+    strcat (item->str_cache, "=");
+    item->str_cache_val = strchr (item->str_cache, '\0');
+    memcpy(item->str_cache_val, item->argz, item->argz_len);
+    argz_stringify(item->str_cache_val, item->argz_len, item->sep);
 
-    return item->str_cache;
+    return item->str_cache_val;
+}
+
+int environment_count (struct environment *e)
+{
+    if (!e)
+        return -1;
+    return (int)zhash_size (e->environment);
 }
 
 const char *environment_get (struct environment *e, const char *key)
 {
     struct env_item *item = zhash_lookup (e->environment, key);
-    return stringify_env_item(item);
+    return stringify_env_item(item, key);
 }
 
 static void environment_set_inner (struct environment *e,
@@ -236,14 +248,35 @@ void environment_set_separator (struct environment *e,
         item->sep = separator;
 }
 
+const char *environment_first_kv (struct environment *e)
+{
+    struct env_item *item = zhash_first (e->environment);
+    if (!item)
+        return NULL;
+    stringify_env_item (item, zhash_cursor (e->environment));
+    return item->str_cache;
+}
+
+const char *environment_next_kv (struct environment *e)
+{
+    struct env_item *item = zhash_next (e->environment);
+    if (!item)
+        return NULL;
+    stringify_env_item (item, zhash_cursor (e->environment));
+    return item->str_cache;
+}
+
+
 const char *environment_first (struct environment *e)
 {
-    return stringify_env_item (zhash_first (e->environment));
+    struct env_item *item = zhash_first (e->environment);
+    return stringify_env_item (item, zhash_cursor (e->environment));
 }
 
 const char *environment_next (struct environment *e)
 {
-    return stringify_env_item (zhash_next (e->environment));
+    struct env_item *item = zhash_next (e->environment);
+    return stringify_env_item (item, zhash_cursor (e->environment));
 }
 
 const char *environment_cursor (struct environment *e)
@@ -261,7 +294,7 @@ void environment_apply (struct environment *e)
             if (unsetenv (key))
                 log_err_exit ("unsetenv: %s", key);
         } else {
-            const char *value = stringify_env_item (item);
+            const char *value = stringify_env_item (item, key);
             if (setenv (key, value, 1) < 0)
                 log_err_exit ("setenv: %s=%s", key, value);
         }
