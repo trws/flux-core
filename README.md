@@ -156,3 +156,18 @@ If your system process manager uses PMIx, the `libpmi.so` compatibility library
 provided by the PMIx project should be sufficient to bootstrap flux.
 If your version of PMIx was not built with the compatibility libraries
 installed, you may build libpmix as a separate package to get them installed.
+
+### License
+
+Flux is distributed under the terms of the LGPL-3.0 (GNU Lesser General Public
+License v3.0).
+
+All new contributions must be made under the LGPL v3.0.
+
+See [LICENSE](LICENSE), [COPYRIGHT](COPYRIGHT), and [NOTICE](NOTICE) for
+details.
+
+`SPDX-License-Identifier: LGPL-3.0`
+
+``LLNL-CODE-764420``
+

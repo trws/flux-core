@@ -4,6 +4,11 @@ The Flux project welcomes all contributors. This short guide details how
 to contribute to Flux Framework projects in a standardized and efficient
 manner.
 
+## Contribution licensing
+
+Cardioid is distributed under the terms of the MIT license. All new
+contributions must be made under this license.
+
 ## Contribution RFCs
 
 Contributions to Flux projects should adhere to the rules contained
