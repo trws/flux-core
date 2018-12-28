@@ -1,6 +1,13 @@
 Intellectual Property Notice
 ------------------------------
 
+Copyright (c) 2014 Lawrence Livermore National Security, LLC.  Produced at
+the Lawrence Livermore National Laboratory (cf, AUTHORS, DISCLAIMER.LLNS).
+LLNL-CODE-764420 All rights reserved.
+
+This file is part of the Flux resource manager framework.
+For details, see https://github.com/flux-framework.
+
 Flux is licensed under the terms of the LGPL-3.0 (GNU Lesser General Public
 License v3.0).
 
