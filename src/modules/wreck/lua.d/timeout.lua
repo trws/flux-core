@@ -1,3 +1,12 @@
+--[[Copyright 2014 Lawrence Livermore National Security, LLC
+ *  (c.f. AUTHORS, NOTICE.LLNS, COPYING)
+ *
+ *  This file is part of the Flux resource manager framework.
+ *  For details, see https://github.com/flux-framework.
+ *
+ *  SPDX-License-Identifier: LGPL-3.0
+]]
+
 --
 -- Register timer on nodeid 0 if kvs `walltime` is set for this job.
 --  Kill job on timeout if reached.

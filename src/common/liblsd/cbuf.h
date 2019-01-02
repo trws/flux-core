@@ -1,3 +1,12 @@
+/* Copyright 2014 Lawrence Livermore National Security, LLC
+ * (c.f. AUTHORS, NOTICE.LLNS, COPYING)
+ *
+ * This file is part of the Flux resource manager framework.
+ * For details, see https://github.com/flux-framework.
+ *
+ * SPDX-License-Identifier: LGPL-3.0
+ */
+
 /*****************************************************************************
  *  Written by Chris Dunlap <cdunlap@llnl.gov>.
  *  Copyright (C) 2002-2005 The Regents of the University of California.

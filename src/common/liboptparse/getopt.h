@@ -1,3 +1,12 @@
+/* Copyright 2014 Lawrence Livermore National Security, LLC
+ * (c.f. AUTHORS, NOTICE.LLNS, COPYING)
+ *
+ * This file is part of the Flux resource manager framework.
+ * For details, see https://github.com/flux-framework.
+ *
+ * SPDX-License-Identifier: LGPL-3.0
+ */
+
 /* Declarations for getopt.
    Copyright (C) 1989-1994,1996-1999,2001,2003,2004,2009,2010
    Free Software Foundation, Inc.

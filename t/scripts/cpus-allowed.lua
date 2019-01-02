@@ -1,3 +1,12 @@
+--[[Copyright 2014 Lawrence Livermore National Security, LLC
+ *  (c.f. AUTHORS, NOTICE.LLNS, COPYING)
+ *
+ *  This file is part of the Flux resource manager framework.
+ *  For details, see https://github.com/flux-framework.
+ *
+ *  SPDX-License-Identifier: LGPL-3.0
+]]
+
 #!/usr/bin/env lua
 --
 --  Thin frontend to Lua affinity bindings, run cpu_set_t methods against
