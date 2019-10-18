@@ -110,6 +110,8 @@ docker run --rm \
     -e CC \
     -e CXX \
     -e LDFLAGS \
+    -e ASAN_OPTIONS \
+    -e LSAN_OPTIONS \
     -e CFLAGS \
     -e CPPFLAGS \
     -e GCOV \
