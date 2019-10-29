@@ -13,6 +13,7 @@
 #  TEST_INSTALL  Run `make check` against installed flux-core
 #  CPPCHECK      Run cppcheck if set to "t"
 #  DISTCHECK     Run `make distcheck` if set
+#  PRELOAD       Set as LD_PRELOAD for make and tests
 #  chain_lint    Run sharness with --chain-lint if chain_lint=t
 #
 #  And, obviously, some crucial variables that configure itself cares about:
@@ -39,7 +40,7 @@ fi
 
 ARGS="$@"
 JOBS=${JOBS:-2}
-MAKECMDS="${MAKE} -j ${JOBS} ${DISTCHECK:+dist}check"
+MAKECMDS="${MAKE} -k -j ${JOBS} ${DISTCHECK:+dist}check"
 
 # Add non-standard path for libfaketime to LD_LIBRARY_PATH:
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/faketime"
@@ -85,6 +86,10 @@ elif test "$TEST_INSTALL" = "t"; then
     MAKECMDS="${MAKE} -j $JOBS && sudo make install && \
               /usr/bin/flux keygen --force && \
               FLUX_TEST_INSTALLED_PATH=/usr/bin ${MAKE} -j $JOBS check"
+fi
+
+if [ -z "$PRELOAD" ] ; then
+  MAKECMDS="/usr/bin/env 'LD_PRELOAD=$PRELOAD' ${MAKE}"
 fi
 
 # Travis has limited resources, even though number of processors might
