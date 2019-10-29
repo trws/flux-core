@@ -37,7 +37,7 @@ jobs:
        - DISTCHECK=t
        - PYTHON_VERSION=3.6
        - GITHUB_RELEASES_DEPLOY=t
-    - name: "Ubuntu: gcc-8 --with-flux-security"
+    - name: "Ubuntu: gcc-8 address-sanitizer --with-flux-security"
       stage: test
       compiler: gcc-8
       env:
