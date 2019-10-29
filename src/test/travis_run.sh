@@ -88,7 +88,7 @@ elif test "$TEST_INSTALL" = "t"; then
               FLUX_TEST_INSTALLED_PATH=/usr/bin ${MAKE} -j $JOBS check"
 fi
 
-if [ -z "$PRELOAD" ] ; then
+if test -n "$PRELOAD" ; then
   MAKECMDS="/usr/bin/env 'LD_PRELOAD=$PRELOAD' ${MAKE}"
 fi
 
@@ -119,4 +119,5 @@ travis_fold "autogen.sh" "./autogen.sh..." ./autogen.sh
 travis_fold "configure"  "./configure ${ARGS}..." ./configure ${ARGS}
 travis_fold "make_clean" "make clean..." make clean
 
+echo running: ${MAKECMDS}
 eval ${MAKECMDS}
