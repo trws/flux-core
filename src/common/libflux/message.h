@@ -53,7 +53,7 @@ enum {
 struct flux_match {
     int typemask;           /* bitmask of matching message types (or 0) */
     uint32_t matchtag;      /* matchtag (or FLUX_MATCHTAG_NONE) */
-    char *topic_glob;       /* glob matching topic string (or NULL) */
+    const char *topic_glob;       /* glob matching topic string (or NULL) */
 };
 
 #define FLUX_MATCH_ANY (struct flux_match){ \
