@@ -210,7 +210,7 @@ static int copy_match (struct flux_match *dst,
                        const struct flux_match src)
 {
 
-    flux_match_destroy (*dst);
+    flux_match_free (*dst);
     *dst = src;
     if (src.topic_glob) {
         if (!(dst->topic_glob = strdup (src.topic_glob)))
@@ -477,7 +477,7 @@ static void free_msg_handler (flux_msg_handler_t *mh)
     if (mh) {
         int saved_errno = errno;
         assert (mh->magic == HANDLER_MAGIC);
-        flux_match_destroy (mh->match);
+        flux_match_free (mh->match);
         mh->magic = ~HANDLER_MAGIC;
         free (mh);
         errno = saved_errno;

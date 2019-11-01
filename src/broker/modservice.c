@@ -209,7 +209,7 @@ static int register_event (modservice_ctx_t *ctx, const char *name,
     rc = 0;
 cleanup:
     flux_msg_handler_destroy (mh);
-    flux_match_destroy (match);
+    flux_match_free (match);
     return rc;
 }
 
@@ -242,7 +242,7 @@ static int register_request (modservice_ctx_t *ctx, const char *name,
     rc = 0;
 cleanup:
     flux_msg_handler_destroy (mh);
-    flux_match_destroy (match);
+    flux_match_free (match);
     return rc;
 }
 

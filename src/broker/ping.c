@@ -118,10 +118,10 @@ int ping_initialize (flux_t *h, const char *service)
     flux_msg_handler_allow_rolemask (p->mh, FLUX_ROLE_ALL);
     flux_msg_handler_start (p->mh);
     flux_aux_set (h, "flux::ping", p, ping_finalize);
-    flux_match_destroy (match);
+    flux_match_free (match);
     return 0;
 error:
-    flux_match_destroy (match);
+    flux_match_free (match);
     if (p)
         ping_finalize (p);
     return -1;

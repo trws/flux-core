@@ -81,12 +81,12 @@ int rusage_initialize (flux_t *h, const char *service)
         goto error;
     flux_msg_handler_start (r->mh);
     flux_aux_set (h, "flux::rusage", r, rusage_finalize);
-    flux_match_destroy (match);
+    flux_match_free (match);
     return 0;
 error:
     if (r)
         rusage_finalize (r);
-    flux_match_destroy (match);
+    flux_match_free (match);
     return -1;
 }
 
