@@ -73,22 +73,20 @@ int rusage_initialize (flux_t *h, const char *service)
         goto error;
     }
     match.typemask = FLUX_MSGTYPE_REQUEST;
-    char *topic = NULL;
-    if (asprintf (&topic, "%s.rusage", service) < 0) {
+    if (flux_match_asprintf (&match, "%s.rusage", service) < 0) {
         errno = ENOMEM;
         goto error;
     }
-    match.topic_glob = topic;
     if (!(r->mh = flux_msg_handler_create (h, match, rusage_request_cb, r)))
         goto error;
     flux_msg_handler_start (r->mh);
     flux_aux_set (h, "flux::rusage", r, rusage_finalize);
-    free ((char*)match.topic_glob);
+    flux_match_destroy (match);
     return 0;
 error:
     if (r)
         rusage_finalize (r);
-    free ((char*)match.topic_glob);
+    flux_match_destroy (match);
     return -1;
 }
 

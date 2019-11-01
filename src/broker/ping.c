@@ -109,21 +109,19 @@ int ping_initialize (flux_t *h, const char *service)
         goto error;
     }
     match.typemask = FLUX_MSGTYPE_REQUEST;
-    char *topic = NULL;
-    if (asprintf (&topic, "%s.ping", service) < 0) {
+    if (flux_match_asprintf (&match, "%s.ping", service) < 0) {
         errno = ENOMEM;
         goto error;
     }
-    match.topic_glob = topic;
     if (!(p->mh = flux_msg_handler_create (h, match, ping_request_cb, p)))
         goto error;
     flux_msg_handler_allow_rolemask (p->mh, FLUX_ROLE_ALL);
     flux_msg_handler_start (p->mh);
     flux_aux_set (h, "flux::ping", p, ping_finalize);
-    free ((char*)match.topic_glob);
+    flux_match_destroy (match);
     return 0;
 error:
-    free ((char*)match.topic_glob);
+    flux_match_destroy (match);
     if (p)
         ping_finalize (p);
     return -1;

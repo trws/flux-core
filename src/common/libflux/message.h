@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "types.h"
 
 #ifdef __cplusplus
@@ -56,26 +57,41 @@ struct flux_match {
     const char *topic_glob;       /* glob matching topic string (or NULL) */
 };
 
-#define FLUX_MATCH_ANY (struct flux_match){ \
-    .typemask = FLUX_MSGTYPE_ANY, \
-    .matchtag = FLUX_MATCHTAG_NONE, \
-    .topic_glob = NULL, \
+static inline struct flux_match flux_match_create (int typemask,
+                                                   uint32_t matchtag,
+                                                   const char *topic_glob)
+{
+    struct flux_match m = {typemask, matchtag, topic_glob};
+    return m;
 }
-#define FLUX_MATCH_EVENT (struct flux_match){ \
-    .typemask = FLUX_MSGTYPE_EVENT, \
-    .matchtag = FLUX_MATCHTAG_NONE, \
-    .topic_glob = NULL, \
+static inline void flux_match_destroy (struct flux_match m)
+{
+    if (m.topic_glob) {
+        free ((char *)m.topic_glob);
+    }
 }
-#define FLUX_MATCH_REQUEST (struct flux_match){ \
-    .typemask = FLUX_MSGTYPE_REQUEST, \
-    .matchtag = FLUX_MATCHTAG_NONE, \
-    .topic_glob = NULL, \
-}
-#define FLUX_MATCH_RESPONSE (struct flux_match){ \
-    .typemask = FLUX_MSGTYPE_RESPONSE, \
-    .matchtag = FLUX_MATCHTAG_NONE, \
-    .topic_glob = NULL, \
-}
+int flux_match_asprintf (struct flux_match *m, const char *topic_glob_fmt, ...);
+
+#define FLUX_MATCH_ANY flux_match_create( \
+    FLUX_MSGTYPE_ANY, \
+    FLUX_MATCHTAG_NONE, \
+    NULL \
+)
+#define FLUX_MATCH_EVENT flux_match_create( \
+    FLUX_MSGTYPE_EVENT, \
+    FLUX_MATCHTAG_NONE, \
+    NULL \
+)
+#define FLUX_MATCH_REQUEST flux_match_create( \
+    FLUX_MSGTYPE_REQUEST, \
+    FLUX_MATCHTAG_NONE, \
+    NULL \
+)
+#define FLUX_MATCH_RESPONSE flux_match_create( \
+    FLUX_MSGTYPE_RESPONSE, \
+    FLUX_MATCHTAG_NONE, \
+    NULL \
+)
 
 /* Create a new Flux message.
  * Returns new message or null on failure, with errno set (e.g. ENOMEM, EINVAL)

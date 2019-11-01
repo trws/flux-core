@@ -1465,6 +1465,20 @@ int flux_msg_frames (const flux_msg_t *msg)
     return zmsg_size (msg->zmsg);
 }
 
+int flux_match_asprintf (struct flux_match *m,
+                                         const char *topic_glob_fmt,
+                                         ...)
+{
+    va_list args;
+    va_start (args, topic_glob_fmt);
+    char *topic = NULL;
+    int res = vasprintf (&topic, topic_glob_fmt, args);
+    va_end (args);
+    m->topic_glob = topic;
+    return res;
+}
+
+
 /*
  * vi:tabstop=4 shiftwidth=4 expandtab
  */

@@ -183,15 +183,13 @@ static int register_event (modservice_ctx_t *ctx, const char *name,
     flux_msg_handler_t *mh = NULL;
     int rc = -1;
 
-    char *topic = NULL;
-    if (asprintf (&topic,
+    if (flux_match_asprintf (&match,
                   "%s.%s",
                   module_get_name (ctx->p),
                   name) < 0) {
         log_err ("asprintf");
         goto cleanup;
     }
-    match.topic_glob = topic;
     if (!(mh = flux_msg_handler_create (ctx->h, match, cb, ctx->p))) {
         log_err ("flux_msg_handler_create");
         goto cleanup;
@@ -211,7 +209,7 @@ static int register_event (modservice_ctx_t *ctx, const char *name,
     rc = 0;
 cleanup:
     flux_msg_handler_destroy (mh);
-    free ((char*)match.topic_glob);
+    flux_match_destroy (match);
     return rc;
 }
 
@@ -222,15 +220,13 @@ static int register_request (modservice_ctx_t *ctx, const char *name,
     flux_msg_handler_t *mh = NULL;
     int rc = -1;
 
-    char *topic = NULL;
-    if (asprintf (&topic,
+    if (flux_match_asprintf (&match,
                   "%s.%s",
                   module_get_name (ctx->p),
                   name) < 0) {
         log_err ("asprintf");
         goto cleanup;
     }
-    match.topic_glob = topic;
     if (!(mh = flux_msg_handler_create (ctx->h, match, cb, ctx->p))) {
         log_err ("flux_msg_handler_create");
         goto cleanup;
@@ -246,7 +242,7 @@ static int register_request (modservice_ctx_t *ctx, const char *name,
     rc = 0;
 cleanup:
     flux_msg_handler_destroy (mh);
-    free ((char*)match.topic_glob);
+    flux_match_destroy (match);
     return rc;
 }
 
