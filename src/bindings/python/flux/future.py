@@ -13,6 +13,7 @@ import errno
 from flux.util import check_future_error
 from flux.wrapper import Wrapper, WrapperPimpl
 from flux.core.inner import ffi, lib, raw
+import _flux.new_binding as nb
 from typing import Dict
 
 
@@ -88,7 +89,7 @@ class Future(WrapperPimpl):
         # pylint: disable=cyclic-import
         import flux.core.handle
 
-        flux_handle = self.pimpl.get_flux()
+        flux_handle = nb.flux_future_get_flux(self)
         if flux_handle == ffi.NULL:
             return None
         handle = flux.core.handle.Flux(handle=flux_handle)
@@ -96,9 +97,6 @@ class Future(WrapperPimpl):
         # (which is owned by the future) when the flux handle is garbage collected
         handle.incref()
         return handle
-
-    def get_reactor(self):
-        return self.pimpl.get_reactor()
 
     def then(self, callback, arg=None, timeout=-1.0):
         if self in _THEN_HANDLES:
@@ -130,8 +128,9 @@ class Future(WrapperPimpl):
             # callback outstanding. Particularly important for streaming RPCs.
             _THEN_HANDLES[self] += 1
 
-    def is_ready(self):
-        return self.pimpl.is_ready()
+    get_reactor = nb.flux_future_get_reactor
+    is_ready = nb.flux_future_is_ready
+    wait_for_ = nb.flux_future_wait_for
 
-    def wait_for(self, timeout=-1.0):
-        self.pimpl.wait_for(timeout)
+    def wait_for(self, timeout: float = -1.0):
+        self.wait_for_("bah")
