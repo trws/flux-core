@@ -35,7 +35,7 @@ start with an empty set, e.g. :option:`--rlimit=-*,core` will only propagate
 the ``core`` resource limit.
 
 The set of resource limits propagated by default includes all those except
-``memlock``, ``ofile``, ``msgqueue``, ``nice``, ``rtprio``, ``rttime``,
+``memlock``, ``msgqueue``, ``nice``, ``rtprio``, ``rttime``,
 and ``sigpending``. To propagate all possible resource limits, use
 :option:`--rlimit=*`.
 

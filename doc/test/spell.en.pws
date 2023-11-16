@@ -655,7 +655,6 @@ MEMLOCK
 msgqueue
 nofile
 NOFILE
-ofile
 RLIM
 rlimit
 RLIMIT
