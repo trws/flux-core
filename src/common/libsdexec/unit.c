@@ -16,6 +16,12 @@
 #endif
 #include <sys/types.h>
 #include <sys/wait.h>
+
+// musl libc doesn't define this (this is borrowed from glibc)
+#ifndef __W_EXITCODE
+#define __W_EXITCODE(ret, sig)  ((ret) << 8 | (sig))
+#endif
+
 #include <flux/core.h>
 
 #include "src/common/libutil/errprintf.h"

@@ -45,6 +45,12 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+// musl libc doesn't define this (this is borrowed from glibc)
+#ifndef __W_EXITCODE
+#define __W_EXITCODE(ret, sig)  ((ret) << 8 | (sig))
+#endif
+
 #define EXIT_CODE(x) __W_EXITCODE(x,0)
 
 #include <jansson.h>
