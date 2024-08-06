@@ -691,14 +691,12 @@ static int hostlist_find_host (struct hostlist *hl,
                                struct current *cur)
 {
     int i, count, ret = -1;
-    struct hostname * hn;
 
-    hn = hostname_create (hostname);
-    if (!hn)
+    if (!hostname)
         return -1;
 
     for (i = 0, count = 0; i < hl->nranges; i++) {
-        int offset = hostrange_hn_within (hl->hr[i], hn);
+        int offset = hostrange_str_within (hl->hr[i], hostname, -1);
         if (offset >= 0) {
             ret = count + offset;
             set_current (cur, i, offset);
@@ -708,7 +706,6 @@ static int hostlist_find_host (struct hostlist *hl,
             count += hostrange_count (hl->hr[i]);
     }
 
-    hostname_destroy (hn);
     if (ret < 0)
         errno = ENOENT;
     return ret;

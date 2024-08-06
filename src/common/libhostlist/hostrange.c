@@ -332,6 +332,114 @@ struct hostrange * hostrange_intersect (struct hostrange * h1,
     return new;
 }
 
+/*
+ * return the location of the last char in the hostname prefix
+ */
+static int host_prefix_end (const char *hostname)
+{
+    int len = strlen (hostname);
+    int idx = len - 1;
+
+    /* Rewind to the last non-digit in hostname
+     */
+    while (idx >= 0 && isdigit ((char) hostname[idx]))
+        idx--;
+
+    return idx;
+}
+
+/* return offset of hn if it is in the hostlist or
+ *        -1 if not.
+ *  idx: -1 for unknown offset of suffix
+ */
+int hostrange_str_within (struct hostrange * hr, const char * hostname, int idx)
+{
+    int len_hr;
+    int len_hn_prefix;
+    int width;
+
+    if (hr->singlehost) {
+        /*
+         *  If the current hostrange [hr] is a `singlehost' (no valid
+         *   numeric suffix (lo and hi)), then the hostrange [hr]
+         *   stores just one host with name == hr->prefix.
+         *
+         *  Thus the full hostname in [hn] must match hr->prefix, in
+         *   which case we return true. Otherwise, there is no
+         *   possibility that [hn] matches [hr].
+         */
+        if (strcmp (hostname, hr->prefix) == 0)
+            return 0;
+        else
+            return -1;
+    }
+
+    if (idx < 0)
+        idx = host_prefix_end(hostname);
+    len_hn_prefix = idx + 1;
+    char *p = NULL;
+    errno = 0;
+    int num = strtoul (hostname+len_hn_prefix, &p, 10);
+    const char *suffix = hostname+len_hn_prefix;
+    if (p == suffix) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    /*
+     *  If hostrange and hostname prefixes don't match to at least
+     *   the length of the hostname object (which will have the min
+     *   possible prefix length), then there is no way the hostname
+     *   falls within the range [hr].
+     */
+    if (strncmp (hr->prefix, hostname, len_hn_prefix) != 0)
+        return -1;
+
+    /*
+     *  Now we know hostrange and hostname prefixes match up to the
+     *   length of the hostname prefix.  If the hostrange and hostname
+     *   prefix lengths do not match (specifically if the hostname prefix
+     *   length is less than the hostrange prefix length) and the
+     *   hostrange prefix contains trailing digits, then it might be
+     *   the case that the hostrange was created by forcing the prefix
+     *   to contain digits a la f00[1-2]. So we try adjusting the
+     *   hostname with the longer prefix and calling this function
+     *   again with the new hostname. (Yes, this is ugly, sorry)
+     */
+    len_hr = strlen (hr->prefix);
+    width = strlen(suffix);
+
+    if ((len_hn_prefix < len_hr)
+         && (width > 1)
+         && (isdigit (hr->prefix [len_hr - 1]))
+         && (hr->prefix [len_hn_prefix] == suffix[0]) ) {
+        int rc;
+
+        /*
+         *  Recursive call :-o
+         */
+        rc = hostrange_str_within (hr, hostname, len_hn_prefix);
+        return rc;
+    }
+
+    /*
+     *  Finally, check whether [hn], with a valid numeric suffix,
+     *   falls within the range of [hr] if [hn] and [hr] prefix are
+     *   identical.
+     */
+    if ((len_hr == len_hn_prefix)
+        && (strncmp (hostname, hr->prefix, len_hn_prefix) == 0)
+        && (num <= hr->hi)
+        && (num >= hr->lo)) {
+        if (!width_equiv (hr->lo, &hr->width, num, &width))
+            return -1;
+        return (num - hr->lo);
+    }
+
+    return -1;
+}
+
+
 /* return offset of hn if it is in the hostlist or
  *        -1 if not.
  */

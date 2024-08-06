@@ -57,6 +57,7 @@ struct hostrange * hostrange_intersect (struct hostrange *,
                                         struct hostrange *);
 
 int hostrange_hn_within (struct hostrange *, struct hostname *);
+int hostrange_str_within (struct hostrange * hr, const char * hn, int idx);
 
 size_t hostrange_numstr(struct hostrange *, size_t, char *);
 
